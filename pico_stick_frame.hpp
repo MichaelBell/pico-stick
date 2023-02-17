@@ -1,3 +1,5 @@
+#pragma once
+
 #include <cstdint>
 
 namespace pico_stick {
@@ -14,6 +16,7 @@ namespace pico_stick {
         MODE_ARGB1555 = 1,  // 2 bytes per pixel: Alpha: 15, Red: 14-10, Green: 9-5, Blue 4-0
         MODE_RGB888 = 2,    // 3 bytes per pixel R, G, B.
         MODE_PALETTE8 = 3,  // 1 byte per pixel: Maps to ARGB8888 palette entry
+        MODE_INVALID = 0xFF
     };
 
     struct Config {
@@ -40,10 +43,28 @@ namespace pico_stick {
     };
 
     struct FrameTableEntry {
-        uint32_t apply_frame_offset : 1;
-        uint32_t line_mode : 3;
-        uint32_t palette_index : 4;
-        uint32_t line_address : 24;
+        uint32_t entry;
+
+        uint32_t apply_frame_offset() const { return entry >> 31; }
+        LineMode line_mode() const { return LineMode((entry >> 28) & 0x7); }
+        uint32_t palette_index() const { return (entry >> 24) & 0xF; }
+        uint32_t line_address() const { return entry & 0xFFFFFF; }
+    };
+
+    struct SpriteHeader {
+        uint32_t hdr;
+        LineMode sprite_mode() const { return LineMode(hdr >> 28); }
+        uint32_t palette_index() const { return (hdr >> 24) & 0xF; }
+        uint32_t sprite_address() const { return hdr & 0xFFFFFF; }
+
+        uint8_t width;
+        uint8_t height;
+    };
+
+    struct SpriteLine {
+        uint8_t offset;
+        uint8_t width;
+        uint16_t data_start;  // Index into data of start of line
     };
 
     inline uint32_t get_pixel_data_len(pico_stick::LineMode mode) {

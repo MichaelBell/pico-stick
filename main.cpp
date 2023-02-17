@@ -50,19 +50,46 @@ void make_rainbow(APS6404& aps6404) {
         buf[3] = 0x01e00000;
         buf[4] = 0x00000001;
         buf[5] = 0x000101e0;
-        buf[6] = 0x00000000;
+        buf[6] = 0x00010000;
         aps6404.write(addr, buf, 7);
         addr += 7 * 4;
 
+        // Frame table
         constexpr int stride = 2048;
         for (int i = 0; i < 4; ++i) {
             for (int j = 0; j < 120; ++j) {
-                buf[j] = 0x10000010 + (((i * 120 + j) * stride) << 8);
+                buf[j] = 0x100000 + (i * 120 + j) * stride;
             }
             aps6404.write(addr, buf, 120);
             aps6404.wait_for_finish_blocking();
             addr += 120 * 4;
         }
+
+        // Sprite table
+        printf("Writing sprite table at %lx\n", addr);
+        uint32_t* ptr = buf;
+        *ptr++ = addr + 4;
+        *ptr++ = 0x14002018;
+        for (int y = 0; y < 32; y += 2) {
+            *ptr++ = 0x14001400;
+        }
+        for (int y = 0; y < 32; y += 2) {
+            for (int x = 0; x < 20; x += 2) {
+                *ptr++ = 0xFFFFF800;
+            }
+            for (int x = 0; x < 20; x += 2) {
+                *ptr++ = 0x001F001F;
+            }
+        }
+        int len = ptr - buf;
+        uint32_t* write_ptr = buf;
+        while (len > 0) {
+            aps6404.write(addr, write_ptr, std::min(len, 128));
+            addr += 512;
+            len -= 128;
+            write_ptr += 128;
+        }
+        aps6404.wait_for_finish_blocking();
     }
 
 #if 0
@@ -113,7 +140,7 @@ int main() {
 
 	stdio_init_all();
 
-    sleep_ms(5000);
+    //sleep_ms(5000);
     printf("Starting\n");
 
     display.init();
@@ -121,6 +148,8 @@ int main() {
 
     make_rainbow(display.get_ram());
     printf("Rainbow written...\n");
+
+    display.set_sprite(0, true, 20, 20);
 
     display.run();
     printf("Display failed\n");
