@@ -53,6 +53,10 @@ class DisplayDriver {
         // Set a sprite to a given position
         void set_sprite(uint8_t idx, bool enabled, int16_t x, int16_t y);
 
+        void set_frame_data_address_offset(int offset) {
+            frame_data_address_offset = offset;
+        }
+
         // Called internally by run().
         void run_core1();
 
@@ -72,6 +76,8 @@ class DisplayDriver {
 
         int frame_counter = 0;
         int line_counter = 0;
+
+        int frame_data_address_offset = 0;
 
         // Must be as long as the greatest supported frame height.
         pico_stick::FrameTableEntry frame_table[MAX_FRAME_HEIGHT];

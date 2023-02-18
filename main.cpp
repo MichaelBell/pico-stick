@@ -6,11 +6,14 @@
 #include "hardware/dma.h"
 #include "hardware/gpio.h"
 #include "hardware/irq.h"
+#include "hardware/watchdog.h"
+#include "pico/bootrom.h"
 
+#include "i2c_interface.hpp"
 #include "display.hpp"
 #include "aps6404.hpp"
 
-#define FRAME_WIDTH 640
+#define FRAME_WIDTH 1152
 #define FRAME_HEIGHT 480
 
 using namespace pimoroni;
@@ -41,6 +44,8 @@ uint16_t from_hsv(float h, float s, float v) {
 uint32_t colour_buf[2][FRAME_WIDTH / 2];
 
 void make_rainbow(APS6404& aps6404) {
+    constexpr int stride = FRAME_WIDTH * 2;
+
     uint32_t addr = 0;
     {
         uint32_t* buf = colour_buf[0];
@@ -55,7 +60,6 @@ void make_rainbow(APS6404& aps6404) {
         addr += 7 * 4;
 
         // Frame table
-        constexpr int stride = 2048;
         for (int i = 0; i < 4; ++i) {
             for (int j = 0; j < 120; ++j) {
                 buf[j] = 0x100000 + (i * 120 + j) * stride;
@@ -69,15 +73,15 @@ void make_rainbow(APS6404& aps6404) {
         printf("Writing sprite table at %lx\n", addr);
         uint32_t* ptr = buf;
         *ptr++ = addr + 4;
-        *ptr++ = 0x14002018;
+        *ptr++ = 0x08002008;
         for (int y = 0; y < 32; y += 2) {
-            *ptr++ = 0x14001400;
+            *ptr++ = 0x08000800;
         }
         for (int y = 0; y < 32; y += 2) {
-            for (int x = 0; x < 20; x += 2) {
+            for (int x = 0; x < 8; x += 2) {
                 *ptr++ = 0xFFFFF800;
             }
-            for (int x = 0; x < 20; x += 2) {
+            for (int x = 0; x < 8; x += 2) {
                 *ptr++ = 0x001F001F;
             }
         }
@@ -92,7 +96,7 @@ void make_rainbow(APS6404& aps6404) {
         aps6404.wait_for_finish_blocking();
     }
 
-#if 0
+#if 1
     // This is to display the vista image.  Enable and change stride above to 1280.
     addr = 0x100000;
     uint32_t* buf = (uint32_t*)0x1003c000;
@@ -106,7 +110,7 @@ void make_rainbow(APS6404& aps6404) {
     for (int y = 0; y < FRAME_HEIGHT; ++y) {
         buf = (uint16_t*)(colour_buf[0]);
         for (int x = 0; x < FRAME_WIDTH; ++x) {
-            *buf++ = from_hsv((1.0f * x) / FRAME_WIDTH, (1.0f * y) / FRAME_HEIGHT, (1.0f * (y % 20)) / 20);
+            *buf++ = from_hsv((1.0f * x) / (FRAME_WIDTH / 2), (1.0f * y) / FRAME_HEIGHT, (1.0f * (y % 20)) / 20);
             //*buf++ = from_hsv((1.0f * x) / FRAME_WIDTH, 1.f, 1.f);
             //*buf++ = x + y * FRAME_WIDTH;
         }
@@ -128,12 +132,30 @@ void make_rainbow(APS6404& aps6404) {
             }
 #endif
         }
-        addr += 2048;
+        addr += stride;
     }
 #endif
 }
 
 DisplayDriver display;
+
+void handle_i2c_reg_write(uint8_t reg, uint8_t end_reg, uint8_t* data) {
+    if (reg == 0x10) {
+        // X scroll
+        //printf("Set X scroll to %hhu\n", *data);
+        display.set_frame_data_address_offset(data[0] * 4);
+    }
+    if (reg == 0xFF) {
+        if (*data == 0x01) {
+            printf("Resetting\n");
+            watchdog_reboot(0, 0, 0);
+        }
+        if (*data == 0x02) {
+            printf("Resetting to DFU mode\n");
+            reset_usb_boot(0, 0);
+        }
+    }
+}
 
 int main() {
 	set_sys_clock_khz(252000, true);
@@ -142,6 +164,7 @@ int main() {
 
     //sleep_ms(5000);
     printf("Starting\n");
+    i2c_slave_if::init(handle_i2c_reg_write);
 
     display.init();
     printf("APS Init\n");

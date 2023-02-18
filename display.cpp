@@ -98,10 +98,11 @@ void DisplayDriver::run() {
         line_counter = 0;
         read_two_lines(0);
         ram.wait_for_finish_blocking();
+        line_counter = 2;
 
         uint pixel_data_read_idx = 1;
-        while (line_counter < frame_data.config.v_length) {
-            if (line_counter < frame_data.config.v_length - 2) {
+        while (line_counter < frame_data.config.v_length + 2) {
+            if (line_counter < frame_data.config.v_length) {
                 // Read two lines into the buffers we just output
                 read_two_lines(pixel_data_read_idx);
             }
@@ -158,18 +159,18 @@ void DisplayDriver::set_sprite(uint8_t idx, bool enabled, int16_t x, int16_t y) 
 }
 
 void __not_in_flash_func(DisplayDriver::prepare_scanline)(int line_number, uint32_t* pixel_data, uint32_t* tmds_buf) {
+        #if 0
     auto& patch = patches[line_number];
     if (patch.mode != MODE_INVALID) {
         memcpy((uint8_t*)pixel_data + patch.offset, patch.data, patch.len);
-        #if 0
         uint16_t* pixel_ptr = (uint16_t*)((uint8_t*)pixel_data + patch.offset);
         uint16_t* data_ptr = (uint16_t*)patch.data;
         for (uint32_t i = 0; i < (patch.len >> 1); ++i) {
             pixel_ptr[i] = (uint32_t(pixel_ptr[i] & 0xF7DF) + uint32_t(data_ptr[i] & 0xF7DF)) >> 1;
         }
-        #endif
         patch.mode = MODE_INVALID;
     }
+        #endif
 
     tmds_encode_data_channel_fullres_16bpp(pixel_data, tmds_buf, frame_data.config.h_length, 4, 0);
     tmds_encode_data_channel_fullres_16bpp(pixel_data, tmds_buf + (frame_data.config.h_length >> 1), frame_data.config.h_length, 10, 5);
@@ -181,7 +182,7 @@ void DisplayDriver::read_two_lines(uint idx) {
 
     for (int i = 0; i < 2; ++i) {
         FrameTableEntry& entry = frame_table[line_counter + i];
-        addresses[i] = entry.line_address();
+        addresses[i] = entry.line_address() + frame_data_address_offset;
         line_lengths[idx * 2 + i] = (frame_data.config.h_length * get_pixel_data_len(entry.line_mode())) >> 2;
     }
 
