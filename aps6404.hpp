@@ -29,7 +29,7 @@ namespace pimoroni {
 
             // Start multiple reads to the same buffer.  They completes asynchronously, 
             // this function only blocks if another transfer is already in progress
-            void multi_read(uint32_t* addresses, uint32_t* lengths, uint32_t num_addresses, uint32_t* read_buf);
+            void multi_read(uint32_t* addresses, uint32_t* lengths, uint32_t num_addresses, uint32_t* read_buf, int chain_channel = -1);
 
             // Read and block until completion
             void read_blocking(uint32_t addr, uint32_t* read_buf, uint32_t len_in_words) {
@@ -41,7 +41,7 @@ namespace pimoroni {
             void wait_for_finish_blocking();
 
         private:
-            void start_read(uint32_t* read_buf, uint32_t total_len_in_words);
+            void start_read(uint32_t* read_buf, uint32_t total_len_in_words, int chain_channel = -1);
             void setup_cmd_buffer_dma(bool clear = false);
             uint32_t* add_read_to_cmd_buffer(uint32_t* cmd_buf, uint32_t addr, uint32_t len_in_words);
 

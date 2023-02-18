@@ -88,7 +88,7 @@ namespace pimoroni {
         }
     }
 
-    void APS6404::multi_read(uint32_t* addresses, uint32_t* lengths, uint32_t num_reads, uint32_t* read_buf) {
+    void APS6404::multi_read(uint32_t* addresses, uint32_t* lengths, uint32_t num_reads, uint32_t* read_buf, int chain_channel) {
         uint32_t total_len = 0;
         uint32_t* cmd_buf = multi_read_cmd_buffer;
         for (uint32_t i = 0; i < num_reads; ++i) {
@@ -96,13 +96,13 @@ namespace pimoroni {
             cmd_buf = add_read_to_cmd_buffer(cmd_buf, addresses[i], lengths[i]);
         }
 
-        start_read(read_buf, total_len);
+        start_read(read_buf, total_len, chain_channel);
         setup_cmd_buffer_dma();
 
         dma_channel_transfer_from_buffer_now(read_cmd_dma_channel, multi_read_cmd_buffer, cmd_buf - multi_read_cmd_buffer);
     }
 
-    void APS6404::start_read(uint32_t* read_buf, uint32_t total_len_in_words) {
+    void APS6404::start_read(uint32_t* read_buf, uint32_t total_len_in_words, int chain_channel) {
         wait_for_finish_blocking();
 
         dma_channel_config c = dma_channel_get_default_config(dma_channel);
@@ -110,6 +110,9 @@ namespace pimoroni {
         channel_config_set_write_increment(&c, true);
         channel_config_set_dreq(&c, pio_get_dreq(pio, pio_sm, false));
         channel_config_set_transfer_data_size(&c, DMA_SIZE_32);
+        if (chain_channel >= 0) {
+            channel_config_set_chain_to(&c, chain_channel);
+        }
         
         dma_channel_configure(
             dma_channel, &c,
