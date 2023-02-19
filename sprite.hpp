@@ -29,7 +29,8 @@ class Sprite {
             uint32_t ctrl;    // Control word for DMA chain
         };
 
-        void update_sprite(class DisplayDriver& disp);
+        void update_sprite(FrameDecode& frame_data);
+        void setup_patches(class DisplayDriver& disp);
 
     private:
         int16_t x;

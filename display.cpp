@@ -31,12 +31,17 @@ void DisplayDriver::run_core1() {
         printf("Core 1 up\n");
         dvi_start(&dvi0);
         while (true) {
-            const int line_counter = multicore_fifo_pop_blocking();
-            uint32_t *colourbuf = (uint32_t*)multicore_fifo_pop_blocking();
-            if (!colourbuf) break;
+            const uint32_t line_counter = multicore_fifo_pop_blocking();
+            if (line_counter & 0x80000000u) {
+                sprites[line_counter & 0x7F].setup_patches(*this);
+            }
+            else {
+                uint32_t *colourbuf = (uint32_t*)multicore_fifo_pop_blocking();
+                if (!colourbuf) break;
 
-            uint32_t *tmdsbuf = (uint32_t*)multicore_fifo_pop_blocking();
-            prepare_scanline(line_counter, colourbuf, tmdsbuf);
+                uint32_t *tmdsbuf = (uint32_t*)multicore_fifo_pop_blocking();
+                prepare_scanline(line_counter, colourbuf, tmdsbuf);
+            }
             multicore_fifo_push_blocking(0);
         }
 
@@ -59,6 +64,8 @@ void DisplayDriver::init() {
     dvi_init(&dvi0, next_striped_spin_lock_num(), next_striped_spin_lock_num());
 	sem_init(&dvi_start_sem, 0, 1);
 	hw_set_bits(&bus_ctrl_hw->priority, BUSCTRL_BUS_PRIORITY_PROC1_BITS);
+
+    patch_lock = spin_lock_instance(next_striped_spin_lock_num());
 
     // Claim DMA channels
     patch_write_channel = dma_claim_unused_channel(true);
@@ -162,7 +169,7 @@ void DisplayDriver::run() {
         ram.wait_for_finish_blocking();
         line_counter = 2;
 
-        printf("VSYNC processing took %luus\n", time_us_32() - start_time);
+        printf("VSYNC %luus, late: %d\n", time_us_32() - start_time, dvi0.total_late_scanlines);
 
         main_loop();
 
@@ -263,6 +270,11 @@ void DisplayDriver::read_two_lines(uint idx) {
         pixel_data_ptr += line_length;
     }
 
+    if (num_patches > 0) {
+        while (dma_hw->ch[patch_chain_channel].read_addr < (uint32_t)&patch_transfer_control[num_patches + 1]) 
+            __compiler_memory_barrier();
+    }
+    num_patches = patch_ptr - patch_transfer_control;
     if (patch_ptr != patch_transfer_control) {
         *patch_ptr++ = 0;
         dma_hw->ch[patch_chain_channel].read_addr = (uint32_t)patch_transfer_control;
@@ -299,7 +311,13 @@ void DisplayDriver::update_sprites() {
     // Wait for patch clear to complete
     dma_channel_wait_for_finish_blocking(patch_write_channel);
 
-    for (int i = 0; i < MAX_SPRITES; ++i) {
-        sprites[i].update_sprite(*this);
+    for (int i = 0; i < MAX_SPRITES; i += 2) {
+        sprites[i].update_sprite(frame_data);
+        multicore_fifo_push_blocking(0x80000000u + i);
+
+        sprites[i+1].update_sprite(frame_data);
+        sprites[i+1].setup_patches(*this);
+
+        multicore_fifo_pop_blocking();
     }
 }

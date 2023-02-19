@@ -100,8 +100,10 @@ class DisplayDriver {
         // Must be long enough to accept two lines at maximum data length and maximum width
         uint32_t pixel_data[NUM_LINE_BUFFERS / 2][(MAX_FRAME_WIDTH * 3) / 2];
         uint32_t line_lengths[NUM_LINE_BUFFERS];
-
+        
         Sprite sprites[MAX_SPRITES];
+        spin_lock_t* patch_lock;
 
         alignas(16) uint32_t patch_transfer_control[MAX_PATCHES_PER_LINE * 2 + 1];
+        uint32_t num_patches = 0;
 };
