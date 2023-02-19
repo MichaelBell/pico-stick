@@ -187,10 +187,19 @@ void DisplayDriver::run() {
             if (x[i] > (640 << sprite_move_shift) && xdir[i] > 0) xdir[i] = -xdir[i];
             if (y[i] < (-20 << sprite_move_shift) && ydir[i] < 0) ydir[i] = -ydir[i];
             if (y[i] > (480 << sprite_move_shift) && ydir[i] > 0) ydir[i] = -ydir[i];
+            BlendMode blend_mode = BLEND_NONE;
+            if (i & 1) {
+                if (i & 2) {
+                    blend_mode = BLEND_BLEND;
+                }
+                else {
+                    blend_mode = BLEND_DEPTH;
+                }
+            }
             if (i < 4)
-                set_sprite(i, 4, x[i] >> sprite_move_shift, y[i] >> sprite_move_shift);
+                set_sprite(i, 4, blend_mode, x[i] >> sprite_move_shift, y[i] >> sprite_move_shift);
             else
-                set_sprite(i, ((i + heartbeat) >> 3) & 3, x[i] >> sprite_move_shift, y[i] >> sprite_move_shift);
+                set_sprite(i, ((i + heartbeat) >> 3) & 3, blend_mode, x[i] >> sprite_move_shift, y[i] >> sprite_move_shift);
         }
     }
 }
@@ -234,8 +243,9 @@ void DisplayDriver::main_loop() {
     }
 }
 
-void DisplayDriver::set_sprite(int8_t i, int16_t idx, int16_t x, int16_t y) {
+void DisplayDriver::set_sprite(int8_t i, int16_t idx, BlendMode mode, int16_t x, int16_t y) {
     sprites[i].set_sprite_table_idx(idx);
+    sprites[i].set_blend_mode(mode);
     sprites[i].set_sprite_pos(x, y);
 }
 
@@ -259,7 +269,7 @@ void DisplayDriver::read_two_lines(uint idx) {
     uint8_t* pixel_data_ptr = (uint8_t*)pixel_data[idx];
     for (int i = 0; i < 2; ++i) {
         FrameTableEntry& entry = frame_table[line_counter + i];
-        addresses[i] = entry.line_address() + frame_data_address_offset;
+        addresses[i] = get_line_address(line_counter + i);
         const uint32_t line_length = frame_data.config.h_length * get_pixel_data_len(entry.line_mode());
         line_lengths[idx * 2 + i] = line_length >> 2;
 
@@ -318,11 +328,18 @@ void DisplayDriver::update_sprites() {
 
     for (int i = 0; i < MAX_SPRITES; i += 2) {
         sprites[i].update_sprite(frame_data);
-        multicore_fifo_push_blocking(0x80000000u + i);
+        if (sprites[i].get_blend_mode() == BLEND_NONE) {
+            multicore_fifo_push_blocking(0x80000000u + i);
+        }
+        else {
+            sprites[i].setup_patches(*this);
+        }
 
         sprites[i+1].update_sprite(frame_data);
         sprites[i+1].setup_patches(*this);
 
-        multicore_fifo_pop_blocking();
+        if (sprites[i].get_blend_mode() == BLEND_NONE) {
+            multicore_fifo_pop_blocking();
+        }
     }
 }

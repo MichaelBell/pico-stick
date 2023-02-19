@@ -48,7 +48,7 @@ class DisplayDriver {
         void run();
 
         // Setup a sprite with data and position
-        void set_sprite(int8_t i, int16_t table_idx, int16_t x, int16_t y);
+        void set_sprite(int8_t i, int16_t table_idx, pico_stick::BlendMode mode, int16_t x, int16_t y);
 
         // Move an existing sprite
         void move_sprite(int8_t i, int16_t x, int16_t y);
@@ -73,6 +73,10 @@ class DisplayDriver {
         void read_two_lines(uint idx);
         void clear_patches();
         void update_sprites();
+        uint32_t get_line_address(int line_number) {
+            auto& entry = frame_table[line_number];
+            return entry.line_address() + (entry.apply_frame_offset() ? frame_data_address_offset : 0);
+        }
 
         FrameDecode frame_data;
         pico_stick::Resolution current_res;

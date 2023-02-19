@@ -12,11 +12,19 @@ namespace pico_stick {
     };
 
     enum LineMode : uint8_t {
-        MODE_RGB565 = 0,    // 2 bytes per pixel: Red: 15-11, Green 10-5, Blue 4-0
-        MODE_ARGB1555 = 1,  // 2 bytes per pixel: Alpha: 15, Red: 14-10, Green: 9-5, Blue 4-0
+        MODE_RGB565 = 0,    // 2 bytes per pixel: Red 15-11, Green 10-5, Blue 4-0
+        MODE_RGAB5515 = 1,  // 2 bytes per pixel: Red 15-11, Green 10-6, Alpha 5, Blue 4-0
         MODE_RGB888 = 2,    // 3 bytes per pixel R, G, B.
         MODE_PALETTE8 = 3,  // 1 byte per pixel: Maps to ARGB8888 palette entry
         MODE_INVALID = 0xFF
+    };
+
+    enum BlendMode : uint8_t {
+        BLEND_NONE = 0,     // Sprite replaces frame
+        BLEND_DEPTH = 1,    // Depth order, back to front: Sprite A0, Frame A0 or missing, Sprite A1, Frame A1
+        BLEND_DEPTH2 = 2,   // Depth order, back to front: Sprite A0, Frame A0 or missing, Frame A1, Sprite A1
+        BLEND_BLEND = 3,    // Use frame if Sprite A0 or Frame A1, add if Sprite A1 or missing and Frame A0 or missing
+        BLEND_BLEND2 = 4,   // Use frame if Sprite A0, add if Sprite A1 or missing
     };
 
     struct Config {
@@ -45,7 +53,7 @@ namespace pico_stick {
     struct FrameTableEntry {
         uint32_t entry;
 
-        uint32_t apply_frame_offset() const { return entry >> 31; }
+        bool apply_frame_offset() const { return (entry >> 31) != 0; }
         LineMode line_mode() const { return LineMode((entry >> 28) & 0x7); }
         uint32_t palette_index() const { return (entry >> 24) & 0xF; }
         uint32_t line_address() const { return entry & 0xFFFFFF; }
@@ -72,7 +80,7 @@ namespace pico_stick {
         {
         default:
         case MODE_RGB565:
-        case MODE_ARGB1555:
+        case MODE_RGAB5515:
             return 2;
 
         case MODE_RGB888:

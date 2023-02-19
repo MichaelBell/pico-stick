@@ -27,7 +27,7 @@ Frame tables:
   Number of frames times:
     Frame table length times:
       1 bit: Apply frame offset to line address    - Apply frame memory address offset specifed in I2C register to the line address.
-      3 bits: Line mode (RGB565, ARGB1555, RGB888, 8-bit palette, ...)
+      3 bits: Line mode (RGB565, RGAB5515, RGB888, 8-bit palette, ...)
       4 bits: Line submode (Palette index)
       3 bytes: Line address (must be a multiple of 4)
 
@@ -40,7 +40,7 @@ Palette tables:
 
 Sprite table:
   Number of sprites times:
-    4 bits: Sprite mode (RGB565, ARGB1555, RGB888, 8-bit palette, ...)
+    4 bits: Sprite mode (RGB565, RGAB5515, RGB888, 8-bit palette, ...)
     4 bits: Sprite submode (Palette index)
     3 bytes: Sprite address (must be a multiple of 4)
 

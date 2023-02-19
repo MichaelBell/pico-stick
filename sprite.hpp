@@ -6,10 +6,6 @@
 
 class Sprite {
     public:
-        Sprite()
-            : idx(-1)
-        {}
-
         void set_sprite_table_idx(int16_t table_idx) {
             idx = table_idx;
         }
@@ -20,6 +16,14 @@ class Sprite {
 
         void set_sprite_pos(int16_t new_x, int16_t new_y) {
             x = new_x; y = new_y;
+        }
+
+        void set_blend_mode(pico_stick::BlendMode mode) {
+            blend_mode = mode;
+        }
+
+        pico_stick::BlendMode get_blend_mode() const {
+            return blend_mode;
         }
 
         struct LinePatch {
@@ -35,7 +39,8 @@ class Sprite {
     private:
         int16_t x;
         int16_t y;
-        int16_t idx;
+        int16_t idx = -1;
+        pico_stick::BlendMode blend_mode = pico_stick::BLEND_NONE;
 
         pico_stick::SpriteHeader header;
         std::vector<pico_stick::SpriteLine> lines;
