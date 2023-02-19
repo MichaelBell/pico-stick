@@ -66,9 +66,12 @@ class DisplayDriver {
         pimoroni::APS6404& get_ram() { return ram; }
 
     private:
+        friend class Sprite;
+
         void main_loop();
         void prepare_scanline(int line_number, uint32_t* pixel_data, uint32_t* tmds_buf);
         void read_two_lines(uint idx);
+        void clear_patches();
         void update_sprites();
 
         FrameDecode frame_data;
@@ -81,9 +84,7 @@ class DisplayDriver {
         // DMA channels
         int patch_write_channel;
         int patch_control_channel;
-
-        // Control word for the write channel - needed for generating the chain data
-        uint32_t patch_write_channel_ctrl_word;
+        int patch_chain_channel;
 
         int frame_counter = 0;
         int line_counter = 0;
@@ -97,10 +98,10 @@ class DisplayDriver {
         Sprite::LinePatch patches[MAX_FRAME_HEIGHT][MAX_PATCHES_PER_LINE];
 
         // Must be long enough to accept two lines at maximum data length and maximum width
-        uint32_t pixel_data[2][(MAX_FRAME_WIDTH * 3) / 2];
-        uint32_t line_lengths[4];
+        uint32_t pixel_data[NUM_LINE_BUFFERS / 2][(MAX_FRAME_WIDTH * 3) / 2];
+        uint32_t line_lengths[NUM_LINE_BUFFERS];
 
         Sprite sprites[MAX_SPRITES];
 
-        uint32_t patch_transfer_control[4 * MAX_PATCHES_PER_LINE * 2 + 4];
+        alignas(16) uint32_t patch_transfer_control[MAX_PATCHES_PER_LINE * 2 + 1];
 };

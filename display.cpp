@@ -60,23 +60,18 @@ void DisplayDriver::init() {
 	sem_init(&dvi_start_sem, 0, 1);
 	hw_set_bits(&bus_ctrl_hw->priority, BUSCTRL_BUS_PRIORITY_PROC1_BITS);
 
-    for (int i = 0; i < MAX_FRAME_HEIGHT; ++i) {
-        for (int j = 0; j < MAX_PATCHES_PER_LINE; ++j) {
-            patches[i][j].data = nullptr;
-        }
-    }
-
     // Claim DMA channels
     patch_write_channel = dma_claim_unused_channel(true);
     patch_control_channel = dma_claim_unused_channel(true);
+    patch_chain_channel = dma_claim_unused_channel(true);
 
     // Setup write channel control word - transfer bytes from memory to memory
     dma_channel_config c = dma_channel_get_default_config(patch_write_channel);
     channel_config_set_read_increment(&c, true);
     channel_config_set_write_increment(&c, true);
     channel_config_set_transfer_data_size(&c, DMA_SIZE_8);
-    channel_config_set_chain_to(&c, patch_control_channel);
-    patch_write_channel_ctrl_word = c.ctrl;
+    channel_config_set_chain_to(&c, patch_chain_channel);
+    uint32_t patch_write_channel_ctrl_word = c.ctrl;
 
     // Setup control channel - transfer into write channel control registers
     c = dma_channel_get_default_config(patch_control_channel);
@@ -92,6 +87,27 @@ void DisplayDriver::init() {
         4,
         false
     );
+
+    // Setup chain channel - transfer into control channel read address
+    c = dma_channel_get_default_config(patch_chain_channel);
+    channel_config_set_read_increment(&c, true);
+    channel_config_set_write_increment(&c, false);
+    channel_config_set_transfer_data_size(&c, DMA_SIZE_32);
+
+    dma_channel_configure(
+        patch_chain_channel, &c,
+        &dma_hw->ch[patch_control_channel].al3_read_addr_trig,
+        patch_transfer_control,
+        1,
+        false
+    );
+
+    for (int i = 0; i < MAX_FRAME_HEIGHT; ++i) {
+        for (int j = 0; j < MAX_PATCHES_PER_LINE; ++j) {
+            patches[i][j].data = nullptr;
+            patches[i][j].ctrl = patch_write_channel_ctrl_word;
+        }
+    }
 }
 
 void DisplayDriver::run() {
@@ -128,6 +144,8 @@ void DisplayDriver::run() {
             gpio_xor_mask(1u << PIN_HEARTBEAT);
         }
 
+        uint32_t start_time = time_us_32();
+
         if (!frame_data.read_headers()) {
             // TODO!
             return;
@@ -144,11 +162,16 @@ void DisplayDriver::run() {
         ram.wait_for_finish_blocking();
         line_counter = 2;
 
+        printf("VSYNC processing took %luus\n", time_us_32() - start_time);
+
         main_loop();
 
         gpio_put(PIN_VSYNC, 0);
 
-        // Temp: Move our sprite around
+        // Grace period for slow RAM bank switch
+        sleep_us(10);
+
+        // Temp: Move our sprites around
         for (int i = 0; i < num_sprites; ++i) {
             x[i] += xdir[i];
             y[i] += ydir[i];
@@ -156,9 +179,6 @@ void DisplayDriver::run() {
             if (y[i] < 1 || y[i] > 480) ydir[i] = -ydir[i];
             set_sprite(i, 0, x[i], y[i]);
         }
-
-        // Grace period for slow RAM bank switch
-        sleep_us(10);
     }
 }
 
@@ -172,6 +192,9 @@ void DisplayDriver::main_loop() {
         else {
             // We are done reading RAM, indicate RAM bank can be switched
             gpio_put(PIN_VSYNC, 1);
+
+            // Use the patch write channel to clear the old patch data
+            clear_patches();
         }
 
         // Flip the buffer index to the one read last time, which is now ready to output
@@ -228,13 +251,9 @@ void DisplayDriver::read_two_lines(uint idx) {
         line_lengths[idx * 2 + i] = line_length >> 2;
 
         for (int j = 0; j < MAX_PATCHES_PER_LINE; ++j) {
-            auto& patch = patches[line_counter + i][j];
-            if (patch.data) {
-                *patch_ptr++ = (uint32_t)patch.data;
-                *patch_ptr++ = (uint32_t)(pixel_data_ptr + patch.offset);
-                *patch_ptr++ = patch.len;
-                *patch_ptr++ = patch_write_channel_ctrl_word;
-                patch.data = nullptr;
+            auto* patch = &patches[line_counter + i][j];
+            if (patch->data) {
+                *patch_ptr++ = (uint32_t)patch;
             }
             else {
                 break;
@@ -246,19 +265,41 @@ void DisplayDriver::read_two_lines(uint idx) {
 
     if (patch_ptr != patch_transfer_control) {
         *patch_ptr++ = 0;
-        *patch_ptr++ = 0;
-        *patch_ptr++ = 0;
-        *patch_ptr++ = 0;
-        dma_hw->ch[patch_control_channel].read_addr = (uint32_t)patch_transfer_control;
-        ram.multi_read(addresses, &line_lengths[idx * 2], 2, pixel_data[idx], patch_control_channel);
+        dma_hw->ch[patch_chain_channel].read_addr = (uint32_t)patch_transfer_control;
+        ram.multi_read(addresses, &line_lengths[idx * 2], 2, pixel_data[idx], patch_chain_channel);
     }
     else {
         ram.multi_read(addresses, &line_lengths[idx * 2], 2, pixel_data[idx]);
     }
 }
 
+void DisplayDriver::clear_patches() {
+    patch_transfer_control[0] = 0;
+    patch_transfer_control[1] = 0;
+    patch_transfer_control[2] = 0;
+    patch_transfer_control[3] = patches[0][0].ctrl;
+
+    dma_channel_config c = dma_channel_get_default_config(patch_write_channel);
+    channel_config_set_read_increment(&c, true);
+    channel_config_set_write_increment(&c, true);
+    channel_config_set_transfer_data_size(&c, DMA_SIZE_32);
+    channel_config_set_ring(&c, false, 4);
+
+    dma_channel_configure(
+        patch_write_channel, &c,
+        patches,
+        patch_transfer_control,
+        MAX_FRAME_HEIGHT * MAX_PATCHES_PER_LINE * 4,
+        true
+    );
+
+}
+
 void DisplayDriver::update_sprites() {
+    // Wait for patch clear to complete
+    dma_channel_wait_for_finish_blocking(patch_write_channel);
+
     for (int i = 0; i < MAX_SPRITES; ++i) {
-        sprites[i].update_sprite(frame_data, patches);
+        sprites[i].update_sprite(*this);
     }
 }

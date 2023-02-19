@@ -98,7 +98,7 @@ void make_rainbow(APS6404& aps6404) {
         aps6404.write(addr, buf, ptr - buf);
         addr += (ptr - buf) * 4;
         uint32_t* sbuf = (uint32_t*)0x10038100;
-        for (int i = 0; i < 22*32 / 2; i += APS6404::PAGE_SIZE >> 2) {
+        for (int i = 0; i < 24*32 / 2; i += APS6404::PAGE_SIZE >> 2) {
             aps6404.write(addr + (i << 2), sbuf, APS6404::PAGE_SIZE >> 2);
             sbuf += APS6404::PAGE_SIZE >> 2;
         }

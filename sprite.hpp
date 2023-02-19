@@ -24,12 +24,12 @@ class Sprite {
 
         struct LinePatch {
             uint8_t* data;
-            uint16_t offset;  // in bytes
-            uint8_t len;     // in bytes
-            pico_stick::LineMode mode;
+            uint8_t* dest_ptr;
+            uint32_t len;     // in bytes
+            uint32_t ctrl;    // Control word for DMA chain
         };
 
-        void update_sprite(FrameDecode& frame_data, LinePatch patch_array[MAX_FRAME_HEIGHT][MAX_PATCHES_PER_LINE]);
+        void update_sprite(class DisplayDriver& disp);
 
     private:
         int16_t x;
