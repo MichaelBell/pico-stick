@@ -131,22 +131,23 @@ void DisplayDriver::run() {
     int16_t xdir[num_sprites] = { 1, -1, 1, -1, 2 };
     int16_t ydir[num_sprites] = { 1, 1, -1, -1, 1 };
 #else
-    int16_t x[num_sprites];
-    int16_t y[num_sprites];
-    int16_t xdir[num_sprites];
-    int16_t ydir[num_sprites];
+    int32_t x[num_sprites];
+    int32_t y[num_sprites];
+    int32_t xdir[num_sprites];
+    int32_t ydir[num_sprites];
+    constexpr int sprite_move_shift = 7;
 
     for (int i = 0; i < num_sprites; ++i) {
-        x[i] = rand() % 640;
-        y[i] = rand() % 480;
-        xdir[i] = (rand() % 5) - 2;
-        ydir[i] = (rand() % 5) - 2;
+        x[i] = (rand() % 640) << sprite_move_shift;
+        y[i] = (rand() % 480) << sprite_move_shift;
+        xdir[i] = (rand() % 61) - 30;
+        ydir[i] = (rand() % 61) - 30;
     }
 #endif
 
     uint heartbeat = 9;
     while (true) {
-        if (++heartbeat >= 10) {
+        if (++heartbeat >= 32) {
             heartbeat = 0;
             gpio_xor_mask(1u << PIN_HEARTBEAT);
         }
@@ -182,9 +183,14 @@ void DisplayDriver::run() {
         for (int i = 0; i < num_sprites; ++i) {
             x[i] += xdir[i];
             y[i] += ydir[i];
-            if (x[i] < 1 || x[i] > 640) xdir[i] = -xdir[i];
-            if (y[i] < 1 || y[i] > 480) ydir[i] = -ydir[i];
-            set_sprite(i, 0, x[i], y[i]);
+            if (x[i] < (-20 << sprite_move_shift) && xdir[i] < 0) xdir[i] = -xdir[i];
+            if (x[i] > (640 << sprite_move_shift) && xdir[i] > 0) xdir[i] = -xdir[i];
+            if (y[i] < (-20 << sprite_move_shift) && ydir[i] < 0) ydir[i] = -ydir[i];
+            if (y[i] > (480 << sprite_move_shift) && ydir[i] > 0) ydir[i] = -ydir[i];
+            if (i < 4)
+                set_sprite(i, 4, x[i] >> sprite_move_shift, y[i] >> sprite_move_shift);
+            else
+                set_sprite(i, ((i + heartbeat) >> 3) & 3, x[i] >> sprite_move_shift, y[i] >> sprite_move_shift);
         }
     }
 }
@@ -271,8 +277,7 @@ void DisplayDriver::read_two_lines(uint idx) {
     }
 
     if (num_patches > 0) {
-        while (dma_hw->ch[patch_chain_channel].read_addr < (uint32_t)&patch_transfer_control[num_patches + 1]) 
-            __compiler_memory_barrier();
+        while (dma_hw->ch[patch_chain_channel].read_addr < (uint32_t)&patch_transfer_control[num_patches + 1]);
     }
     num_patches = patch_ptr - patch_transfer_control;
     if (patch_ptr != patch_transfer_control) {

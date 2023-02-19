@@ -20,7 +20,9 @@ void Sprite::update_sprite(FrameDecode& frame_data) {
 void Sprite::setup_patches(DisplayDriver& disp) {
     for (int i = 0; i < header.height; ++i) {
         const int line_idx = y + i;
+        if (line_idx < 0 || line_idx >= disp.frame_data.config.v_length) continue;
         auto& line = lines[i];
+        if (line.width == 0) continue;
         
         uint8_t* pixel_data_ptr = (uint8_t*)disp.pixel_data[(line_idx >> 1) & 1];
         if (line_idx & 1) {
@@ -29,22 +31,27 @@ void Sprite::setup_patches(DisplayDriver& disp) {
 
         int start = x + line.offset;
         int end = start + line.width;
+        int start_offset = 0;
         if (end <= 0) continue;
         if (start >= disp.frame_data.config.h_length) continue;
-        if (start < 0) start = 0;
         if (end >= disp.frame_data.config.h_length) end = disp.frame_data.config.h_length;
         
+        const int pixel_size = get_pixel_data_len(header.sprite_mode());
+        start *= pixel_size;
+        end *= pixel_size;
+        if (start < 0) {
+            start_offset = -start;
+            start = 0;
+        }
+
         auto* patch = disp.patches[line_idx];
         uint32_t lock = spin_lock_blocking(disp.patch_lock);
         for (int j = 0; patch->data && j < MAX_PATCHES_PER_LINE - 1; ++j) {
             ++patch;
         }
-        patch->data = (uint8_t*)data.data() + line.data_start;
+        patch->data = (uint8_t*)data.data() + line.data_start + start_offset;
         spin_unlock(disp.patch_lock, lock);
 
-        const int pixel_size = get_pixel_data_len(header.sprite_mode());
-        start *= pixel_size;
-        end *= pixel_size;
 
         patch->dest_ptr = pixel_data_ptr + start;
         patch->len = end - start;

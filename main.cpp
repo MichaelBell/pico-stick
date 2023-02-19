@@ -55,7 +55,7 @@ void make_rainbow(APS6404& aps6404) {
         buf[3] = 0x01e00000;
         buf[4] = 0x00000001;
         buf[5] = 0x000101e0;
-        buf[6] = 0x00010000;
+        buf[6] = 0x00040000;
         aps6404.write(addr, buf, 7);
         addr += 7 * 4;
 
@@ -72,12 +72,16 @@ void make_rainbow(APS6404& aps6404) {
         // Sprite table
         printf("Writing sprite table at %lx\n", addr);
         uint32_t* ptr = buf;
-        *ptr++ = addr + 4;
+        *ptr++ = 0x000c0000;
+        *ptr++ = 0x000c0318;
+        *ptr++ = 0x000c0620;
+        *ptr++ = 0x000c0928;
+        *ptr++ = 0x000c0c40;
+#if 0
         *ptr++ = 0x20001820;
         for (int y = 0; y < 24; y += 2) {
             *ptr++ = 0x20002000;
         }
-#if 0
         for (int y = 0; y < 32; y += 2) {
             for (int x = 0; x < 32; x += 2) {
                 *ptr++ = 0xFFFFF800;
@@ -96,9 +100,9 @@ void make_rainbow(APS6404& aps6404) {
         }
 #else
         aps6404.write(addr, buf, ptr - buf);
-        addr += (ptr - buf) * 4;
-        uint32_t* sbuf = (uint32_t*)0x10038100;
-        for (int i = 0; i < 24*32 / 2; i += APS6404::PAGE_SIZE >> 2) {
+        addr = 0x0c0000;
+        uint32_t* sbuf = (uint32_t*)0x10038000;
+        for (int i = 0; i < 0x10000; i += APS6404::PAGE_SIZE >> 2) {
             aps6404.write(addr + (i << 2), sbuf, APS6404::PAGE_SIZE >> 2);
             sbuf += APS6404::PAGE_SIZE >> 2;
         }
