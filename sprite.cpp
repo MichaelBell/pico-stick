@@ -48,35 +48,29 @@ void Sprite::setup_patches(DisplayDriver& disp) {
         const int len = end - start;
         uint8_t* const sprite_data_ptr = (uint8_t*)data.data() + line.data_start + start_offset;
         if (blend_mode != BLEND_NONE) {
-            // TODO: Consider non RGB565/RGAB5515
+            // TODO: Palette
             
             // TODO could stream this better
             disp.ram.read_blocking(disp.get_line_address(line_idx) + (start & ~3), tmp_frame_data_ptr, (len + 6) >> 2);
 
             switch (header.sprite_mode()) {
-                case MODE_RGB565:
+                case MODE_RGBA5551:
                 {
+                    constexpr uint16_t alpha_mask = 1;
                     switch (blend_mode) {
-                        case BLEND_BLEND:
-                        case BLEND_BLEND2:
+                        // TODO: Should be able to do two pixels at a time with no branching using bit ops,
+                        // can generate masks quickly from the alpha by multiplying by 0xFFFE (RP2040 has single cycle multiply)
+                        case BLEND_DEPTH:
                         {
                             uint16_t* sprite_pixel_ptr = (uint16_t*)sprite_data_ptr;
                             uint16_t* frame_pixel_ptr = (uint16_t*)((uint8_t*)tmp_frame_data_ptr + (start & 3));
                             for (int j = 0; j < (len >> 1); ++j) {
-                                sprite_pixel_ptr[j] = (uint32_t(frame_pixel_ptr[j] & 0xF7DF) + uint32_t(sprite_pixel_ptr[j] & 0xF7DF)) >> 1;
+                                if (!(sprite_pixel_ptr[j] & alpha_mask) || (frame_pixel_ptr[j] & alpha_mask)) {
+                                    sprite_pixel_ptr[j] = frame_pixel_ptr[j];
+                                }
                             }
                             break;
                         }
-                        default:
-                            break;
-                    }
-                    break;
-                }
-                case MODE_RGAB5515:
-                {
-                    constexpr uint16_t alpha_mask = (1 << 5);
-                    switch (blend_mode) {
-                        case BLEND_DEPTH:
                         case BLEND_DEPTH2:
                         {
                             uint16_t* sprite_pixel_ptr = (uint16_t*)sprite_data_ptr;
@@ -89,13 +83,26 @@ void Sprite::setup_patches(DisplayDriver& disp) {
                             break;
                         }
                         case BLEND_BLEND:
+                        {
+                            uint16_t* sprite_pixel_ptr = (uint16_t*)sprite_data_ptr;
+                            uint16_t* frame_pixel_ptr = (uint16_t*)((uint8_t*)tmp_frame_data_ptr + (start & 3));
+                            for (int j = 0; j < (len >> 1); ++j) {
+                                if ((sprite_pixel_ptr[j] & alpha_mask) && !(frame_pixel_ptr[j] & alpha_mask)) {
+                                    sprite_pixel_ptr[j] = (uint32_t(frame_pixel_ptr[j] & 0xF7BC) + uint32_t(sprite_pixel_ptr[j] & 0xF7BC)) >> 1;
+                                }
+                                else {
+                                    sprite_pixel_ptr[j] = frame_pixel_ptr[j];
+                                }
+                            }
+                            break;
+                        }
                         case BLEND_BLEND2:
                         {
                             uint16_t* sprite_pixel_ptr = (uint16_t*)sprite_data_ptr;
                             uint16_t* frame_pixel_ptr = (uint16_t*)((uint8_t*)tmp_frame_data_ptr + (start & 3));
                             for (int j = 0; j < (len >> 1); ++j) {
                                 if (sprite_pixel_ptr[j] & alpha_mask) {
-                                    sprite_pixel_ptr[j] = (uint32_t(frame_pixel_ptr[j] & 0xF7DF) + uint32_t(sprite_pixel_ptr[j] & 0xF7DF)) >> 1;
+                                    sprite_pixel_ptr[j] = (uint32_t(frame_pixel_ptr[j] & 0xF7BC) + uint32_t(sprite_pixel_ptr[j] & 0xF7BC)) >> 1;
                                 }
                                 else {
                                     sprite_pixel_ptr[j] = frame_pixel_ptr[j];

@@ -162,6 +162,14 @@ void DisplayDriver::run() {
 
         frame_data.get_frame_table(frame_counter, frame_table);
 
+        if (frame_data.config.v_repeat != dvi0.vertical_repeat) {
+            // Wait until it is safe to change the vertical repeat
+            while (dvi0.timing_state.v_state == DVI_STATE_ACTIVE && 
+                dvi0.timing_state.v_ctr < dvi0.timing->v_active_lines - 2)
+                __compiler_memory_barrier();
+            dvi0.vertical_repeat = frame_data.config.v_repeat;
+        }
+
         update_sprites();
 
         // Read first 2 lines
@@ -258,8 +266,8 @@ void DisplayDriver::clear_sprite(int8_t i) {
 }
 
 void DisplayDriver::prepare_scanline(int line_number, uint32_t* pixel_data, uint32_t* tmds_buf) {
-    tmds_encode_data_channel_fullres_16bpp(pixel_data, tmds_buf, frame_data.config.h_length, 4, 0);
-    tmds_encode_data_channel_fullres_16bpp(pixel_data, tmds_buf + (frame_data.config.h_length >> 1), frame_data.config.h_length, 10, 5);
+    tmds_encode_data_channel_fullres_16bpp(pixel_data, tmds_buf, frame_data.config.h_length, 5, 1);
+    tmds_encode_data_channel_fullres_16bpp(pixel_data, tmds_buf + (frame_data.config.h_length >> 1), frame_data.config.h_length, 10, 6);
     tmds_encode_data_channel_fullres_16bpp(pixel_data, tmds_buf + frame_data.config.h_length, frame_data.config.h_length, 15, 11);
 }    
 

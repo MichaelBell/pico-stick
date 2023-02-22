@@ -12,24 +12,23 @@ namespace pico_stick {
     };
 
     enum LineMode : uint8_t {
-        MODE_RGB565 = 0,    // 2 bytes per pixel: Red 15-11, Green 10-5, Blue 4-0
-        MODE_RGAB5515 = 1,  // 2 bytes per pixel: Red 15-11, Green 10-6, Alpha 5, Blue 4-0
-        MODE_RGB888 = 2,    // 3 bytes per pixel R, G, B.
-        MODE_PALETTE8 = 3,  // 1 byte per pixel: Maps to ARGB8888 palette entry
+        MODE_RGBA5551 = 1,  // 2 bytes per pixel: Red 15-11, Green 10-6, Blue 5-1, Alpha 0
+        MODE_PALETTE = 2,   // 1 byte per pixel: Colour 6-2, Alpha 0 (unused bits must be zero), maps to RGB888 palette entry, 32 colour palette (not yet implemented)
+        MODE_RGB888 = 3,    // 3 bytes per pixel R, G, B (not yet implemented)
         MODE_INVALID = 0xFF
     };
 
     enum BlendMode : uint8_t {
         BLEND_NONE = 0,     // Sprite replaces frame
-        BLEND_DEPTH = 1,    // Depth order, back to front: Sprite A0, Frame A0 or missing, Sprite A1, Frame A1
-        BLEND_DEPTH2 = 2,   // Depth order, back to front: Sprite A0, Frame A0 or missing, Frame A1, Sprite A1
-        BLEND_BLEND = 3,    // Use frame if Sprite A0 or Frame A1, add if Sprite A1 or missing and Frame A0 or missing
-        BLEND_BLEND2 = 4,   // Use frame if Sprite A0, add if Sprite A1 or missing
+        BLEND_DEPTH = 1,    // Depth order, back to front: Sprite A0, Frame A0, Sprite A1, Frame A1
+        BLEND_DEPTH2 = 2,   // Depth order, back to front: Sprite A0, Frame A0, Frame A1, Sprite A1
+        BLEND_BLEND = 3,    // Use frame if Sprite A0 or Frame A1, add if Sprite A1 and Frame A0
+        BLEND_BLEND2 = 4,   // Use frame if Sprite A0, add if Sprite A1
     };
 
     struct Config {
         Resolution res;
-        uint8_t h_repeat;
+        uint8_t unused;
         uint8_t v_repeat;
         bool blank;
 
@@ -55,7 +54,7 @@ namespace pico_stick {
 
         bool apply_frame_offset() const { return (entry >> 31) != 0; }
         LineMode line_mode() const { return LineMode((entry >> 28) & 0x7); }
-        uint32_t palette_index() const { return (entry >> 24) & 0xF; }
+        uint32_t h_repeat() const { return (entry >> 24) & 0xF; }
         uint32_t line_address() const { return entry & 0xFFFFFF; }
     };
 
@@ -79,14 +78,13 @@ namespace pico_stick {
         switch (mode)
         {
         default:
-        case MODE_RGB565:
-        case MODE_RGAB5515:
+        case MODE_RGBA5551:
             return 2;
 
         case MODE_RGB888:
             return 3;
 
-        case MODE_PALETTE8:
+        case MODE_PALETTE:
             return 1;
         }
     }
