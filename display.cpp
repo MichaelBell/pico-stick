@@ -17,7 +17,7 @@ extern "C" {
 
 using namespace pico_stick;
 
-#define PROFILE_SCANLINE 0
+#define PROFILE_SCANLINE 1
 #define PROFILE_VSYNC 0
 
 namespace {
@@ -35,16 +35,11 @@ void DisplayDriver::run_core1() {
         dvi_start(&dvi0);
         while (true) {
             const uint32_t line_counter = multicore_fifo_pop_blocking();
-            if (line_counter & 0x80000000u) {
-                sprites[line_counter & 0x7F].setup_patches(*this);
-            }
-            else {
-                uint32_t *colourbuf = (uint32_t*)multicore_fifo_pop_blocking();
-                if (!colourbuf) break;
+            uint32_t *colourbuf = (uint32_t*)multicore_fifo_pop_blocking();
+            if (!colourbuf) break;
 
-                uint32_t *tmdsbuf = (uint32_t*)multicore_fifo_pop_blocking();
-                prepare_scanline(line_counter, colourbuf, tmdsbuf);
-            }
+            uint32_t *tmdsbuf = (uint32_t*)multicore_fifo_pop_blocking();
+            prepare_scanline(line_counter, colourbuf, tmdsbuf);
             multicore_fifo_push_blocking(0);
         }
 
@@ -69,8 +64,6 @@ void DisplayDriver::init() {
     dvi_init(&dvi0, next_striped_spin_lock_num(), next_striped_spin_lock_num());
 	sem_init(&dvi_start_sem, 0, 1);
 	hw_set_bits(&bus_ctrl_hw->priority, BUSCTRL_BUS_PRIORITY_PROC1_BITS);
-
-    patch_lock = spin_lock_instance(next_striped_spin_lock_num());
 
     // Claim DMA channels
     patch_write_channel = dma_claim_unused_channel(true);
@@ -118,6 +111,9 @@ void DisplayDriver::init() {
         for (int j = 0; j < MAX_PATCHES_PER_LINE; ++j) {
             patches[i][j].data = nullptr;
             patches[i][j].ctrl = patch_write_channel_ctrl_word;
+        }
+        for (int j = 0; j < MAX_BLEND_PATCHES_PER_LINE; ++j) {
+            blend_patches[i][j].data = nullptr;
         }
     }
 }
@@ -287,6 +283,15 @@ void DisplayDriver::prepare_scanline(int line_number, uint32_t* pixel_data, uint
 #if PROFILE_SCANLINE
     uint32_t start = time_us_32();
 #endif
+    for (int i = 0; i < MAX_BLEND_PATCHES_PER_LINE; ++i) {
+        if (blend_patches[line_number][i].data) {
+            Sprite::apply_blend_patch(blend_patches[line_number][i], (uint8_t*)pixel_data);
+            blend_patches[line_number][i].data = nullptr;
+        }
+        else {
+            break;
+        }
+    }
     tmds_encode_fullres_15bpp(pixel_data, tmds_15bpp_lut, tmds_buf, frame_data.config.h_length);
 #if PROFILE_SCANLINE
     scanline_prep_time[line_number & 1] += time_us_32() - start;
@@ -297,6 +302,12 @@ void DisplayDriver::read_two_lines(uint idx) {
     uint32_t addresses[2];
     uint32_t* patch_ptr = patch_transfer_control;
     uint8_t* pixel_data_ptr = (uint8_t*)pixel_data[idx];
+
+    // Wait for previous patch chain to complete
+    if (num_patches > 0) {
+        while (dma_hw->ch[patch_chain_channel].read_addr < (uint32_t)&patch_transfer_control[num_patches + 1]);
+    }
+
     for (int i = 0; i < 2; ++i) {
         FrameTableEntry& entry = frame_table[line_counter + i];
         addresses[i] = get_line_address(line_counter + i);
@@ -316,11 +327,9 @@ void DisplayDriver::read_two_lines(uint idx) {
         pixel_data_ptr += line_length;
     }
 
-    if (num_patches > 0) {
-        while (dma_hw->ch[patch_chain_channel].read_addr < (uint32_t)&patch_transfer_control[num_patches + 1]);
-    }
     num_patches = patch_ptr - patch_transfer_control;
     if (patch_ptr != patch_transfer_control) {
+        // Have some patches, chain them onto the end of the read
         *patch_ptr++ = 0;
         dma_hw->ch[patch_chain_channel].read_addr = (uint32_t)patch_transfer_control;
         ram.multi_read(addresses, &line_lengths[idx * 2], 2, pixel_data[idx], patch_chain_channel);
@@ -356,20 +365,8 @@ void DisplayDriver::update_sprites() {
     // Wait for patch clear to complete
     dma_channel_wait_for_finish_blocking(patch_write_channel);
 
-    for (int i = 0; i < MAX_SPRITES; i += 2) {
+    for (int i = 0; i < MAX_SPRITES; ++i) {
         sprites[i].update_sprite(frame_data);
-        if (sprites[i].get_blend_mode() == BLEND_NONE) {
-            multicore_fifo_push_blocking(0x80000000u + i);
-        }
-        else {
-            sprites[i].setup_patches(*this);
-        }
-
-        sprites[i+1].update_sprite(frame_data);
-        sprites[i+1].setup_patches(*this);
-
-        if (sprites[i].get_blend_mode() == BLEND_NONE) {
-            multicore_fifo_pop_blocking();
-        }
+        sprites[i].setup_patches(*this);
     }
 }

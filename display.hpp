@@ -98,15 +98,17 @@ class DisplayDriver {
         // Must be as long as the greatest supported frame height.
         pico_stick::FrameTableEntry frame_table[MAX_FRAME_HEIGHT];
 
-        // Max of one patch per line for now
+        // Patches that just copy over the existing data, done by DMA
         Sprite::LinePatch patches[MAX_FRAME_HEIGHT][MAX_PATCHES_PER_LINE];
+
+        // Patches that require blending, done by CPU
+        Sprite::BlendPatch blend_patches[MAX_FRAME_HEIGHT][MAX_BLEND_PATCHES_PER_LINE];
 
         // Must be long enough to accept two lines at maximum data length and maximum width
         uint32_t pixel_data[NUM_LINE_BUFFERS / 2][(MAX_FRAME_WIDTH * 3) / 2];
         uint32_t line_lengths[NUM_LINE_BUFFERS];
         
         Sprite sprites[MAX_SPRITES];
-        spin_lock_t* patch_lock;
 
         alignas(16) uint32_t patch_transfer_control[MAX_PATCHES_PER_LINE * 2 + 1];
         uint32_t num_patches = 0;

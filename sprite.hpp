@@ -33,8 +33,16 @@ class Sprite {
             uint32_t ctrl;    // Control word for DMA chain
         };
 
+        struct BlendPatch {
+            uint8_t* data;
+            uint16_t offset; // in bytes
+            uint8_t len;     // in bytes
+            pico_stick::BlendMode mode;
+        };
+
         void update_sprite(FrameDecode& frame_data);
         void setup_patches(class DisplayDriver& disp);
+        static void apply_blend_patch(const BlendPatch& patch, uint8_t* frame_pixel_data);
 
     private:
         int16_t x;
@@ -43,6 +51,6 @@ class Sprite {
         pico_stick::BlendMode blend_mode = pico_stick::BLEND_NONE;
 
         pico_stick::SpriteHeader header;
-        std::vector<pico_stick::SpriteLine> lines;
-        std::vector<uint32_t> data;
+        pico_stick::SpriteLine lines[MAX_SPRITE_HEIGHT];
+        alignas(4) uint8_t data[MAX_SPRITE_WIDTH * MAX_SPRITE_HEIGHT * 2];
 };
