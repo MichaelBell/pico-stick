@@ -16,6 +16,10 @@
         "ostream": "cpp",
         "ratio": "cpp",
         "sstream": "cpp",
-        "streambuf": "cpp"
+        "streambuf": "cpp",
+        "memory_resource": "cpp",
+        "memory": "cpp",
+        "fstream": "cpp",
+        "cmath": "cpp"
     }
 }

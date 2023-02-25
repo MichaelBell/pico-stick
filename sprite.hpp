@@ -42,7 +42,10 @@ class Sprite {
 
         void update_sprite(FrameDecode& frame_data);
         void setup_patches(class DisplayDriver& disp);
-        static void apply_blend_patch(const BlendPatch& patch, uint8_t* frame_pixel_data);
+        static void apply_blend_patch_x(const BlendPatch& patch, uint8_t* frame_pixel_data);
+        static void apply_blend_patch_y(const BlendPatch& patch, uint8_t* frame_pixel_data);
+
+        static void init();
 
     private:
         int16_t x;
@@ -52,5 +55,10 @@ class Sprite {
 
         pico_stick::SpriteHeader header;
         pico_stick::SpriteLine lines[MAX_SPRITE_HEIGHT];
-        alignas(4) uint8_t data[MAX_SPRITE_WIDTH * MAX_SPRITE_HEIGHT * 2];
+        alignas(4) uint8_t data[MAX_SPRITE_DATA_BYTES];
+
+        static int dma_channel_x;
+        static int dma_channel_y;
+        static uint32_t buffer_x[MAX_SPRITE_WIDTH / 2];
+        static uint32_t buffer_y[MAX_SPRITE_WIDTH / 2];
 };

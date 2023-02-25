@@ -18,6 +18,7 @@ extern "C" {
 using namespace pico_stick;
 
 #define PROFILE_SCANLINE 1
+#define PROFILE_SCANLINE_PEAK 1
 #define PROFILE_VSYNC 0
 
 namespace {
@@ -39,7 +40,7 @@ void DisplayDriver::run_core1() {
             if (!colourbuf) break;
 
             uint32_t *tmdsbuf = (uint32_t*)multicore_fifo_pop_blocking();
-            prepare_scanline(line_counter, colourbuf, tmdsbuf);
+            prepare_scanline_core1(line_counter, colourbuf, tmdsbuf);
             multicore_fifo_push_blocking(0);
         }
 
@@ -65,61 +66,18 @@ void DisplayDriver::init() {
 	sem_init(&dvi_start_sem, 0, 1);
 	hw_set_bits(&bus_ctrl_hw->priority, BUSCTRL_BUS_PRIORITY_PROC1_BITS);
 
-    // Claim DMA channels
-    patch_write_channel = dma_claim_unused_channel(true);
-    patch_control_channel = dma_claim_unused_channel(true);
-    patch_chain_channel = dma_claim_unused_channel(true);
-
-    // Setup write channel control word - transfer bytes from memory to memory
-    dma_channel_config c = dma_channel_get_default_config(patch_write_channel);
-    channel_config_set_read_increment(&c, true);
-    channel_config_set_write_increment(&c, true);
-    channel_config_set_transfer_data_size(&c, DMA_SIZE_8);
-    channel_config_set_chain_to(&c, patch_chain_channel);
-    uint32_t patch_write_channel_ctrl_word = c.ctrl;
-
-    // Setup control channel - transfer into write channel control registers
-    c = dma_channel_get_default_config(patch_control_channel);
-    channel_config_set_read_increment(&c, true);
-    channel_config_set_write_increment(&c, true);
-    channel_config_set_transfer_data_size(&c, DMA_SIZE_32);
-    channel_config_set_ring(&c, true, 4);
-
-    dma_channel_configure(
-        patch_control_channel, &c,
-        &dma_hw->ch[patch_write_channel].read_addr,
-        nullptr,
-        4,
-        false
-    );
-
-    // Setup chain channel - transfer into control channel read address
-    c = dma_channel_get_default_config(patch_chain_channel);
-    channel_config_set_read_increment(&c, true);
-    channel_config_set_write_increment(&c, false);
-    channel_config_set_transfer_data_size(&c, DMA_SIZE_32);
-
-    dma_channel_configure(
-        patch_chain_channel, &c,
-        &dma_hw->ch[patch_control_channel].al3_read_addr_trig,
-        patch_transfer_control,
-        1,
-        false
-    );
+    Sprite::init();
 
     for (int i = 0; i < MAX_FRAME_HEIGHT; ++i) {
         for (int j = 0; j < MAX_PATCHES_PER_LINE; ++j) {
             patches[i][j].data = nullptr;
-            patches[i][j].ctrl = patch_write_channel_ctrl_word;
-        }
-        for (int j = 0; j < MAX_BLEND_PATCHES_PER_LINE; ++j) {
-            blend_patches[i][j].data = nullptr;
         }
     }
 }
 
 #if PROFILE_SCANLINE
 static uint32_t scanline_prep_time[2] = {0};
+static int scanline_sprites[2] = {0};
 #endif
 
 void DisplayDriver::run() {
@@ -143,14 +101,24 @@ void DisplayDriver::run() {
     constexpr int sprite_move_shift = 7;
 
     for (int i = 0; i < num_sprites; ++i) {
+        #if 1
         x[i] = (rand() % 640) << sprite_move_shift;
         y[i] = (rand() % 480) << sprite_move_shift;
         xdir[i] = (rand() % 61) - 30;
         ydir[i] = (rand() % 61) - 30;
+        #else
+        x[i] = (i*18) << sprite_move_shift; //(rand() % 640) << sprite_move_shift;
+        y[i] = (36 * (1 + (i >> 3))) << sprite_move_shift; //(120 + i) << sprite_move_shift;
+        xdir[i] = 0;
+        ydir[i] = 0;
+        #endif
     }
 #endif
 
     uint heartbeat = 9;
+#if PROFILE_SCANLINE && PROFILE_SCANLINE_PEAK
+    uint32_t max_scanline_time = 0;
+#endif
     while (true) {
         if (++heartbeat >= 32) {
             heartbeat = 0;
@@ -186,7 +154,24 @@ void DisplayDriver::run() {
         line_counter = 2;
 
 #if PROFILE_SCANLINE
-        printf("Scanline %luus\n", scanline_prep_time[0] + scanline_prep_time[1]);
+#if PROFILE_SCANLINE_PEAK
+        max_scanline_time = 0;
+        if (std::max(scanline_prep_time[0], scanline_prep_time[1]) > max_scanline_time) {
+            int max_sprites;
+            if (scanline_prep_time[0] > scanline_prep_time[1]) {
+                max_scanline_time = scanline_prep_time[0];
+                max_sprites = scanline_sprites[0];
+            }
+            else {
+                max_scanline_time = scanline_prep_time[1];
+                max_sprites = scanline_sprites[1];
+            }
+            
+            printf("Ln %luus, spr %d, lt: %d\n", max_scanline_time, max_sprites, dvi0.total_late_scanlines);
+        }
+#else 
+        printf("Ln %luus, lt: %d\n", scanline_prep_time[0] + scanline_prep_time[1], dvi0.total_late_scanlines);
+#endif
         scanline_prep_time[0] = 0;
         scanline_prep_time[1] = 0;
 #endif
@@ -210,6 +195,7 @@ void DisplayDriver::run() {
             if (y[i] < (-20 << sprite_move_shift) && ydir[i] < 0) ydir[i] = -ydir[i];
             if (y[i] > (480 << sprite_move_shift) && ydir[i] > 0) ydir[i] = -ydir[i];
             BlendMode blend_mode = BLEND_NONE;
+            #if 1
             if (i & 1) {
                 if (i & 2) {
                     blend_mode = BLEND_BLEND;
@@ -217,8 +203,18 @@ void DisplayDriver::run() {
                 else {
                     blend_mode = BLEND_DEPTH;
                 }
+            } else {
+                if (i & 2) {
+                    blend_mode = BLEND_BLEND2;
+                }
+                else {
+                    blend_mode = BLEND_DEPTH2;
+                }
             }
-            if (i < 4)
+            #else
+            blend_mode = BLEND_BLEND;
+            #endif
+            if (i < 8)
                 set_sprite(i, 4, blend_mode, x[i] >> sprite_move_shift, y[i] >> sprite_move_shift);
             else
                 set_sprite(i, ((i + heartbeat) >> 3) & 3, blend_mode, x[i] >> sprite_move_shift, y[i] >> sprite_move_shift);
@@ -236,9 +232,6 @@ void DisplayDriver::main_loop() {
         else {
             // We are done reading RAM, indicate RAM bank can be switched
             gpio_put(PIN_VSYNC, 1);
-
-            // Use the patch write channel to clear the old patch data
-            clear_patches();
         }
 
         // Flip the buffer index to the one read last time, which is now ready to output
@@ -246,7 +239,7 @@ void DisplayDriver::main_loop() {
 
         uint32_t *core0_tmds_buf, *core1_tmds_buf;
         queue_remove_blocking_u32(&dvi0.q_tmds_free, &core1_tmds_buf);
-        sio_hw->fifo_wr = line_counter;
+        sio_hw->fifo_wr = line_counter - 2;
         sio_hw->fifo_wr = uint32_t(pixel_data[pixel_data_read_idx]);
         sio_hw->fifo_wr = uint32_t(core1_tmds_buf);
         __sev();
@@ -255,7 +248,7 @@ void DisplayDriver::main_loop() {
         uint32_t* core0_colour_buf = &pixel_data[pixel_data_read_idx][core1_line_length];
 
         queue_remove_blocking_u32(&dvi0.q_tmds_free, &core0_tmds_buf);
-        prepare_scanline(line_counter + 1, core0_colour_buf, core0_tmds_buf);
+        prepare_scanline_core0(line_counter - 1, core0_colour_buf, core0_tmds_buf);
 
         multicore_fifo_pop_blocking();
         queue_add_blocking_u32(&dvi0.q_tmds_valid, &core1_tmds_buf);
@@ -279,14 +272,15 @@ void DisplayDriver::clear_sprite(int8_t i) {
     sprites[i].set_sprite_table_idx(-1);
 }
 
-void DisplayDriver::prepare_scanline(int line_number, uint32_t* pixel_data, uint32_t* tmds_buf) {
+void DisplayDriver::prepare_scanline_core0(int line_number, uint32_t* pixel_data, uint32_t* tmds_buf) {
 #if PROFILE_SCANLINE
     uint32_t start = time_us_32();
 #endif
-    for (int i = 0; i < MAX_BLEND_PATCHES_PER_LINE; ++i) {
-        if (blend_patches[line_number][i].data) {
-            Sprite::apply_blend_patch(blend_patches[line_number][i], (uint8_t*)pixel_data);
-            blend_patches[line_number][i].data = nullptr;
+    int i;
+    for (i = 0; i < MAX_PATCHES_PER_LINE; ++i) {
+        if (patches[line_number][i].data) {
+            Sprite::apply_blend_patch_y(patches[line_number][i], (uint8_t*)pixel_data);
+            patches[line_number][i].data = nullptr;
         }
         else {
             break;
@@ -294,77 +288,58 @@ void DisplayDriver::prepare_scanline(int line_number, uint32_t* pixel_data, uint
     }
     tmds_encode_fullres_15bpp(pixel_data, tmds_15bpp_lut, tmds_buf, frame_data.config.h_length);
 #if PROFILE_SCANLINE
-    scanline_prep_time[line_number & 1] += time_us_32() - start;
+#if PROFILE_SCANLINE_PEAK
+    scanline_prep_time[0] = std::max(time_us_32() - start, scanline_prep_time[0]);
+    scanline_sprites[0] = std::max(i, scanline_sprites[0]);
+#else    
+    scanline_prep_time[0] += time_us_32() - start;
+    scanline_sprites[0] += i;
+#endif
+#endif
+}    
+
+void DisplayDriver::prepare_scanline_core1(int line_number, uint32_t* pixel_data, uint32_t* tmds_buf) {
+#if PROFILE_SCANLINE
+    uint32_t start = time_us_32();
+#endif
+    int i;
+    for (i = 0; i < MAX_PATCHES_PER_LINE; ++i) {
+        if (patches[line_number][i].data) {
+            Sprite::apply_blend_patch_x(patches[line_number][i], (uint8_t*)pixel_data);
+            patches[line_number][i].data = nullptr;
+        }
+        else {
+            break;
+        }
+    }
+    tmds_encode_fullres_15bpp(pixel_data, tmds_15bpp_lut, tmds_buf, frame_data.config.h_length);
+#if PROFILE_SCANLINE
+#if PROFILE_SCANLINE_PEAK
+    scanline_prep_time[1] = std::max(time_us_32() - start, scanline_prep_time[1]);
+    scanline_sprites[1] = std::max(i, scanline_sprites[1]);
+#else    
+    scanline_prep_time[1] += time_us_32() - start;
+    scanline_sprites[1] += i;
+#endif
 #endif
 }    
 
 void DisplayDriver::read_two_lines(uint idx) {
     uint32_t addresses[2];
-    uint32_t* patch_ptr = patch_transfer_control;
     uint8_t* pixel_data_ptr = (uint8_t*)pixel_data[idx];
-
-    // Wait for previous patch chain to complete
-    if (num_patches > 0) {
-        while (dma_hw->ch[patch_chain_channel].read_addr < (uint32_t)&patch_transfer_control[num_patches + 1]);
-    }
 
     for (int i = 0; i < 2; ++i) {
         FrameTableEntry& entry = frame_table[line_counter + i];
         addresses[i] = get_line_address(line_counter + i);
         const uint32_t line_length = frame_data.config.h_length * get_pixel_data_len(entry.line_mode());
         line_lengths[idx * 2 + i] = line_length >> 2;
-
-        for (int j = 0; j < MAX_PATCHES_PER_LINE; ++j) {
-            auto* patch = &patches[line_counter + i][j];
-            if (patch->data) {
-                *patch_ptr++ = (uint32_t)patch;
-            }
-            else {
-                break;
-            }
-        }
-
         pixel_data_ptr += line_length;
     }
 
-    num_patches = patch_ptr - patch_transfer_control;
-    if (patch_ptr != patch_transfer_control) {
-        // Have some patches, chain them onto the end of the read
-        *patch_ptr++ = 0;
-        dma_hw->ch[patch_chain_channel].read_addr = (uint32_t)patch_transfer_control;
-        ram.multi_read(addresses, &line_lengths[idx * 2], 2, pixel_data[idx], patch_chain_channel);
-    }
-    else {
-        ram.multi_read(addresses, &line_lengths[idx * 2], 2, pixel_data[idx]);
-    }
-}
-
-void DisplayDriver::clear_patches() {
-    patch_transfer_control[0] = 0;
-    patch_transfer_control[1] = 0;
-    patch_transfer_control[2] = 0;
-    patch_transfer_control[3] = patches[0][0].ctrl;
-
-    dma_channel_config c = dma_channel_get_default_config(patch_write_channel);
-    channel_config_set_read_increment(&c, true);
-    channel_config_set_write_increment(&c, true);
-    channel_config_set_transfer_data_size(&c, DMA_SIZE_32);
-    channel_config_set_ring(&c, false, 4);
-
-    dma_channel_configure(
-        patch_write_channel, &c,
-        patches,
-        patch_transfer_control,
-        MAX_FRAME_HEIGHT * MAX_PATCHES_PER_LINE * 4,
-        true
-    );
-
+    ram.multi_read(addresses, &line_lengths[idx * 2], 2, pixel_data[idx]);
 }
 
 void DisplayDriver::update_sprites() {
-    // Wait for patch clear to complete
-    dma_channel_wait_for_finish_blocking(patch_write_channel);
-
     for (int i = 0; i < MAX_SPRITES; ++i) {
         sprites[i].update_sprite(frame_data);
         sprites[i].setup_patches(*this);

@@ -12,7 +12,7 @@ namespace pico_stick {
     };
 
     enum LineMode : uint8_t {
-        MODE_RGBA5551 = 1,  // 2 bytes per pixel: Red 15-11, Green 10-6, Blue 5-1, Alpha 0
+        MODE_ARGB1555 = 1,  // 2 bytes per pixel: Alpha 15, Red 14-10, Green 9-5, Blue 4-0
         MODE_PALETTE = 2,   // 1 byte per pixel: Colour 6-2, Alpha 0 (unused bits must be zero), maps to RGB888 palette entry, 32 colour palette (not yet implemented)
         MODE_RGB888 = 3,    // 3 bytes per pixel R, G, B (not yet implemented)
         MODE_INVALID = 0xFF
@@ -78,7 +78,7 @@ namespace pico_stick {
         switch (mode)
         {
         default:
-        case MODE_RGBA5551:
+        case MODE_ARGB1555:
             return 2;
 
         case MODE_RGB888:
