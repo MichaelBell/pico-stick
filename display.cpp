@@ -12,10 +12,13 @@ extern "C" {
 #include "dvi_serialiser.h"
 #include "common_dvi_pin_configs.h"
 
-#include "tmds_encode.h"
+#include "tmds_double_encode.h"
 }
 
 using namespace pico_stick;
+
+#define PROFILE_SCANLINE 0
+#define PROFILE_VSYNC 0
 
 namespace {
     void core1_main() {
@@ -60,6 +63,8 @@ void DisplayDriver::init() {
     gpio_init(PIN_VSYNC);
     gpio_put(PIN_VSYNC, 0);
     gpio_set_dir(PIN_VSYNC, GPIO_OUT);
+
+    tmds_double_encode_setup_default_lut(tmds_15bpp_lut);
 
     dvi_init(&dvi0, next_striped_spin_lock_num(), next_striped_spin_lock_num());
 	sem_init(&dvi_start_sem, 0, 1);
@@ -117,6 +122,10 @@ void DisplayDriver::init() {
     }
 }
 
+#if PROFILE_SCANLINE
+static uint32_t scanline_prep_time[2] = {0};
+#endif
+
 void DisplayDriver::run() {
 	multicore_launch_core1(core1_main);
     multicore_fifo_push_blocking(uint32_t(this));
@@ -152,7 +161,9 @@ void DisplayDriver::run() {
             gpio_xor_mask(1u << PIN_HEARTBEAT);
         }
 
+#if PROFILE_VSYNC
         uint32_t start_time = time_us_32();
+#endif
 
         if (!frame_data.read_headers()) {
             // TODO!
@@ -178,7 +189,14 @@ void DisplayDriver::run() {
         ram.wait_for_finish_blocking();
         line_counter = 2;
 
+#if PROFILE_SCANLINE
+        printf("Scanline %luus\n", scanline_prep_time[0] + scanline_prep_time[1]);
+        scanline_prep_time[0] = 0;
+        scanline_prep_time[1] = 0;
+#endif
+#if PROFILE_VSYNC
         printf("VSYNC %luus, late: %d\n", time_us_32() - start_time, dvi0.total_late_scanlines);
+#endif
 
         main_loop();
 
@@ -266,9 +284,13 @@ void DisplayDriver::clear_sprite(int8_t i) {
 }
 
 void DisplayDriver::prepare_scanline(int line_number, uint32_t* pixel_data, uint32_t* tmds_buf) {
-    tmds_encode_data_channel_fullres_16bpp(pixel_data, tmds_buf, frame_data.config.h_length, 5, 1);
-    tmds_encode_data_channel_fullres_16bpp(pixel_data, tmds_buf + (frame_data.config.h_length >> 1), frame_data.config.h_length, 10, 6);
-    tmds_encode_data_channel_fullres_16bpp(pixel_data, tmds_buf + frame_data.config.h_length, frame_data.config.h_length, 15, 11);
+#if PROFILE_SCANLINE
+    uint32_t start = time_us_32();
+#endif
+    tmds_encode_fullres_15bpp(pixel_data, tmds_15bpp_lut, tmds_buf, frame_data.config.h_length);
+#if PROFILE_SCANLINE
+    scanline_prep_time[line_number & 1] += time_us_32() - start;
+#endif
 }    
 
 void DisplayDriver::read_two_lines(uint idx) {

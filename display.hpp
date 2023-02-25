@@ -110,4 +110,6 @@ class DisplayDriver {
 
         alignas(16) uint32_t patch_transfer_control[MAX_PATCHES_PER_LINE * 2 + 1];
         uint32_t num_patches = 0;
+
+        uint32_t tmds_15bpp_lut[32*32*2];
 };
