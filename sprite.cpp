@@ -156,16 +156,6 @@ __always_inline static void apply_blend_patch(const Sprite::BlendPatch& patch, u
             }
             break;
         }
-        case BLEND_BLEND2:
-        {
-            for (; sprite_pixel_ptr32 < sprite_end_ptr32; ++sprite_pixel_ptr32, ++frame_pixel_ptr32) {
-                uint32_t mask = *sprite_pixel_ptr32 & alpha_mask;
-                mask = mask - (mask >> 15);
-                uint32_t blended = (((*frame_pixel_ptr32) & blend_mask) + ((*sprite_pixel_ptr32) & blend_mask)) >> 1;
-                *frame_pixel_ptr32 = (*frame_pixel_ptr32 & ~mask) | (blended & mask);
-            }
-            break;
-        }
         case BLEND_BLEND:
         {
             // This is the most expensive case, and the compiler's asm is fairly poor (at least on gcc 9.2.1)
@@ -177,8 +167,9 @@ __always_inline static void apply_blend_patch(const Sprite::BlendPatch& patch, u
                 uint32_t blended = (((*frame_pixel_ptr32) & blend_mask) + ((*sprite_pixel_ptr32) & blend_mask)) >> 1;
                 *frame_pixel_ptr32 = (*frame_pixel_ptr32 & ~mask) | (blended & mask);
             }
-    #else
-                asm ( "1: ldmia %[sprite_pixel_ptr]!, {r1}\n\t"
+#else
+                asm ( ".align 2\n\t"
+                      "1: ldmia %[sprite_pixel_ptr]!, {r1}\n\t"
                       "ldr r2, [%[frame_pixel_ptr]]\n\t"
                       "movs r3, r1\n\t"
                       "bic r3, r2\n\t"
@@ -200,11 +191,52 @@ __always_inline static void apply_blend_patch(const Sprite::BlendPatch& patch, u
                       [sprite_pixel_ptr] "+l" (sprite_pixel_ptr32) :
                       [alpha_mask] "l" (alpha_mask),
                       [blend_mask] "l" (blend_mask),
+                      [mode] "r" (patch.mode),
+                      [BLEND2] "r" (BLEND_BLEND2),
                       [sprite_end_ptr] "r" (sprite_end_ptr32) :
                       "r1",  // sprite_pixel
                       "r2",  // frame_pixel
                       "r0", "r3", "cc" );
-    #endif
+#endif
+            break;
+        }
+        case BLEND_BLEND2:
+        {
+#if 0
+            for (; sprite_pixel_ptr32 < sprite_end_ptr32; ++sprite_pixel_ptr32, ++frame_pixel_ptr32) {
+                uint32_t mask = *sprite_pixel_ptr32 & alpha_mask;
+                mask = mask - (mask >> 15);
+                uint32_t blended = (((*frame_pixel_ptr32) & blend_mask) + ((*sprite_pixel_ptr32) & blend_mask)) >> 1;
+                *frame_pixel_ptr32 = (*frame_pixel_ptr32 & ~mask) | (blended & mask);
+            }
+#else
+                asm ( ".align 2\n\t"
+                      "2: ldmia %[sprite_pixel_ptr]!, {r1}\n\t"
+                      "ldr r2, [%[frame_pixel_ptr]]\n\t"
+                      "movs r3, r1\n\t"
+                      "and r1, %[blend_mask]\n\t"
+                      "and r3, %[alpha_mask]\n\t"
+                      "lsr r0, r3, #15\n\t"
+                      "sub r3, r3, r0\n\t"
+                      "movs r0, r2\n\t"
+                      "and r0, %[blend_mask]\n\t"
+                      "add r0, r0, r1\n\t"
+                      "lsr r0, r0, #1\n\t"
+                      "bic r2, r3\n\t"
+                      "and r0, r3\n\t"
+                      "orr r2, r0\n\t"
+                      "stmia %[frame_pixel_ptr]!, {r2}\n\t"
+                      "cmp %[sprite_pixel_ptr], %[sprite_end_ptr]\n\t"
+                      "bcc 2b\n\t" :
+                      [frame_pixel_ptr] "+l" (frame_pixel_ptr32),
+                      [sprite_pixel_ptr] "+l" (sprite_pixel_ptr32) :
+                      [alpha_mask] "l" (alpha_mask),
+                      [blend_mask] "l" (blend_mask),
+                      [sprite_end_ptr] "r" (sprite_end_ptr32) :
+                      "r1",  // sprite_pixel
+                      "r2",  // frame_pixel
+                      "r0", "r3", "cc" );
+#endif
             break;
         }
         default:

@@ -18,7 +18,7 @@ extern "C" {
 using namespace pico_stick;
 
 #define PROFILE_SCANLINE 1
-#define PROFILE_SCANLINE_PEAK 1
+#define PROFILE_SCANLINE_PEAK 2
 #define PROFILE_VSYNC 0
 
 namespace {
@@ -155,7 +155,6 @@ void DisplayDriver::run() {
 
 #if PROFILE_SCANLINE
 #if PROFILE_SCANLINE_PEAK
-        max_scanline_time = 0;
         if (std::max(scanline_prep_time[0], scanline_prep_time[1]) > max_scanline_time) {
             int max_sprites;
             if (scanline_prep_time[0] > scanline_prep_time[1]) {
@@ -169,6 +168,11 @@ void DisplayDriver::run() {
             
             printf("Ln %luus, spr %d, lt: %d\n", max_scanline_time, max_sprites, dvi0.total_late_scanlines);
         }
+#if PROFILE_SCANLINE_PEAK == 1
+        max_scanline_time = 0;
+        scanline_sprites[0] = 0;
+        scanline_sprites[1] = 0;
+#endif
 #else 
         printf("Ln %luus, lt: %d\n", scanline_prep_time[0] + scanline_prep_time[1], dvi0.total_late_scanlines);
 #endif
@@ -214,7 +218,7 @@ void DisplayDriver::run() {
             #else
             blend_mode = BLEND_BLEND;
             #endif
-            if (i < 8)
+            if (i < 32)
                 set_sprite(i, 4, blend_mode, x[i] >> sprite_move_shift, y[i] >> sprite_move_shift);
             else
                 set_sprite(i, ((i + heartbeat) >> 3) & 3, blend_mode, x[i] >> sprite_move_shift, y[i] >> sprite_move_shift);
