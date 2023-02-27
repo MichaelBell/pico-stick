@@ -1,3 +1,4 @@
+#include <algorithm>
 #include "aps6404.hpp"
 #include "hardware/dma.h"
 #include "hardware/irq.h"
@@ -49,25 +50,30 @@ namespace pimoroni {
 
         setup_cmd_buffer_dma(true);
 
-        pio_sm_put_blocking(pio, pio_sm, (len_in_words * 8) - 1);
-        pio_sm_put_blocking(pio, pio_sm, 0x38000000u | addr);
-        pio_sm_put_blocking(pio, pio_sm, pio_offset + sram_offset_do_write);
+        for (int len = len_in_words, page_len = std::min((PAGE_SIZE - (addr & (PAGE_SIZE - 1))) >> 2, len_in_words); 
+             len > 0; 
+             addr += page_len << 2, data += page_len, len -= page_len, page_len = std::min(PAGE_SIZE >> 2, len))
+        {
+            wait_for_finish_blocking();
 
-        dma_channel_config c = dma_channel_get_default_config(dma_channel);
-        channel_config_set_read_increment(&c, true);
-        channel_config_set_write_increment(&c, false);
-        channel_config_set_dreq(&c, pio_get_dreq(pio, pio_sm, true));
-        channel_config_set_transfer_data_size(&c, DMA_SIZE_32);
-        
-        dma_channel_configure(
-            dma_channel, &c,
-            &pio->txf[pio_sm],
-            data,
-            len_in_words,
-            false
-        );
+            pio_sm_put_blocking(pio, pio_sm, (page_len * 8) - 1);
+            pio_sm_put_blocking(pio, pio_sm, 0x38000000u | addr);
+            pio_sm_put_blocking(pio, pio_sm, pio_offset + sram_offset_do_write);
 
-        dma_channel_start(dma_channel);
+            dma_channel_config c = dma_channel_get_default_config(dma_channel);
+            channel_config_set_read_increment(&c, true);
+            channel_config_set_write_increment(&c, false);
+            channel_config_set_dreq(&c, pio_get_dreq(pio, pio_sm, true));
+            channel_config_set_transfer_data_size(&c, DMA_SIZE_32);
+            
+            dma_channel_configure(
+                dma_channel, &c,
+                &pio->txf[pio_sm],
+                data,
+                page_len,
+                true
+            );
+        }
     }
 
     void APS6404::read(uint32_t addr, uint32_t* read_buf, uint32_t len_in_words) {
