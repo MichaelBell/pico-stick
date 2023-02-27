@@ -6,9 +6,10 @@ namespace pico_stick {
     enum Resolution : uint8_t {
         RESOLUTION_OFF = 0,
         RESOLUTION_640x480 = 1,
-        RESOLUTION_720x576 = 2,
-        RESOLUTION_800x480 = 3,
-        RESOLUTION_800x600 = 4,
+        RESOLUTION_720x480 = 2,
+        RESOLUTION_720x576 = 3,
+        RESOLUTION_800x480 = 4,
+        RESOLUTION_800x600 = 5,
     };
 
     enum LineMode : uint8_t {

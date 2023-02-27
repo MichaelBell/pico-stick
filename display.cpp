@@ -102,7 +102,7 @@ void DisplayDriver::run() {
 
     for (int i = 0; i < num_sprites; ++i) {
         #if 1
-        x[i] = (rand() % 640) << sprite_move_shift;
+        x[i] = (rand() % 720) << sprite_move_shift;
         y[i] = (rand() % 480) << sprite_move_shift;
         xdir[i] = (rand() % 61) - 30;
         ydir[i] = (rand() % 61) - 30;
@@ -138,6 +138,7 @@ void DisplayDriver::run() {
         frame_data.get_frame_table(frame_counter, frame_table);
 
         if (frame_data.config.v_repeat != dvi0.vertical_repeat) {
+            printf("Changing v repeat to %d\n", frame_data.config.v_repeat);
             // Wait until it is safe to change the vertical repeat
             while (dvi0.timing_state.v_state == DVI_STATE_ACTIVE && 
                 dvi0.timing_state.v_ctr < dvi0.timing->v_active_lines - 2)
@@ -195,9 +196,10 @@ void DisplayDriver::run() {
             x[i] += xdir[i];
             y[i] += ydir[i];
             if (x[i] < (-20 << sprite_move_shift) && xdir[i] < 0) xdir[i] = -xdir[i];
-            if (x[i] > (640 << sprite_move_shift) && xdir[i] > 0) xdir[i] = -xdir[i];
+            if (x[i] > (720 << sprite_move_shift) && xdir[i] > 0) xdir[i] = -xdir[i];
             if (y[i] < (-20 << sprite_move_shift) && ydir[i] < 0) ydir[i] = -ydir[i];
             if (y[i] > (480 << sprite_move_shift) && ydir[i] > 0) ydir[i] = -ydir[i];
+            #if 1
             BlendMode blend_mode = BLEND_NONE;
             #if 1
             if (i & 1) {
@@ -222,6 +224,7 @@ void DisplayDriver::run() {
                 set_sprite(i, 4, blend_mode, x[i] >> sprite_move_shift, y[i] >> sprite_move_shift);
             else
                 set_sprite(i, ((i + heartbeat) >> 3) & 3, blend_mode, x[i] >> sprite_move_shift, y[i] >> sprite_move_shift);
+                #endif
         }
     }
 }

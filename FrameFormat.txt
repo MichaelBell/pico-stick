@@ -4,7 +4,7 @@ Pico Stick RAM transfer format
 
 DVI setup: 
   4 bytes: 
-    Res select: (Off, 640x480, 720x576, 800x480, 800x600)   - if doesn't match the boot mode specified over I2C then DVI timing is stopped.
+    Res select: (Off, 640x480, 720x480, 720x576, 800x480, 800x600)   - if doesn't match the boot mode specified over I2C then DVI timing is stopped.
     Unused
     Vertical repeat                                - number of times to repeat each scanline vertically (currently assumed to be 1)
     Output Enable: (On, Off)                       - if off then DVI timing but display is black.

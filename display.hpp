@@ -27,14 +27,17 @@ public:
     static constexpr int PIN_HDMI_D2 = 16;
 
     DisplayDriver(PIO pio = pio1)
-        : frame_data(ram), current_res(pico_stick::RESOLUTION_640x480), ram(PIN_RAM_CS, PIN_RAM_D0), dvi0{
-                                                                                                         .timing{&dvi_timing_640x480p_60hz},
-                                                                                                         .ser_cfg{
-                                                                                                             .pio = pio,
-                                                                                                             .sm_tmds = {0, 1, 2},
-                                                                                                             .pins_tmds = {PIN_HDMI_D0, PIN_HDMI_D1, PIN_HDMI_D2},
-                                                                                                             .pins_clk = PIN_HDMI_CLK,
-                                                                                                             .invert_diffpairs = false}}
+        : frame_data(ram)
+        , current_res(pico_stick::RESOLUTION_720x480)
+        , ram(PIN_RAM_CS, PIN_RAM_D0)
+        , dvi0{
+            .timing{&dvi_timing_720x480p_60hz},
+            .ser_cfg{
+                .pio = pio,
+                .sm_tmds = {0, 1, 2},
+                .pins_tmds = {PIN_HDMI_D0, PIN_HDMI_D1, PIN_HDMI_D2},
+                .pins_clk = PIN_HDMI_CLK,
+                .invert_diffpairs = false}}
     {
     }
 
