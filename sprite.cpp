@@ -75,7 +75,7 @@ __always_inline static void blend_one(BlendMode mode, uint16_t* sprite_pixel_ptr
         case BLEND_DEPTH2:
         {
             if (*sprite_pixel_ptr & alpha_mask) {
-                *frame_pixel_ptr = *sprite_pixel_ptr & (alpha_mask - 1);
+                *frame_pixel_ptr = *sprite_pixel_ptr;
             }
             break;
         }
@@ -89,7 +89,7 @@ __always_inline static void blend_one(BlendMode mode, uint16_t* sprite_pixel_ptr
         case BLEND_BLEND2:
         {
             if (*sprite_pixel_ptr & alpha_mask) {
-                *frame_pixel_ptr = (uint32_t(*frame_pixel_ptr & blend_mask) + uint32_t(*sprite_pixel_ptr & blend_mask)) >> 1;
+                *frame_pixel_ptr = ((uint32_t(*frame_pixel_ptr & blend_mask) + uint32_t(*sprite_pixel_ptr & blend_mask)) >> 1) | (*frame_pixel_ptr & alpha_mask);
             }
             break;
         }
@@ -151,7 +151,7 @@ __always_inline static void apply_blend_patch(const Sprite::BlendPatch& patch, u
         {
             for (; sprite_pixel_ptr32 < sprite_end_ptr32; ++sprite_pixel_ptr32, ++frame_pixel_ptr32) {
                 uint32_t mask = *sprite_pixel_ptr32 & alpha_mask;
-                mask = mask - (mask >> 15);
+                mask = (mask >> 15) * 0xFFFF;
                 *frame_pixel_ptr32 = (*frame_pixel_ptr32 & ~mask) | (*sprite_pixel_ptr32 & mask);
             }
             break;
