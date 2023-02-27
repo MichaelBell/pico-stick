@@ -3,6 +3,7 @@
 #include <math.h>
 #include "pico/stdlib.h"
 #include "hardware/clocks.h"
+#include "hardware/vreg.h"
 #include "hardware/dma.h"
 #include "hardware/gpio.h"
 #include "hardware/irq.h"
@@ -51,19 +52,21 @@ void make_rainbow(APS6404& aps6404) {
         uint32_t* buf = colour_buf[0];
         buf[0] = 0x4F434950;
         buf[1] = 0x01010101;
-        buf[2] = 0x02d00000;
-        //buf[2] = 0x02800000;
-        //buf[3] = 0x02400000;
-        buf[3] = 0x01e00000;
+        //buf[2] = 0x03200000; //800
+        buf[2] = 0x02d00000; //720
+        //buf[2] = 0x02800000; //640
+        //buf[3] = 0x02580000;  // 600
+        //buf[3] = 0x02400000; // 576
+        buf[3] = 0x01e00000;  // 480
         buf[4] = 0x00000001;
-        buf[5] = 0x000101e0;
+        buf[5] = 0x00010258;
         buf[6] = 0x00040000;
         aps6404.write(addr, buf, 7);
         addr += 7 * 4;
 
         // Frame table
-        constexpr int max_i = 4;
-        constexpr int max_j = 120;
+        constexpr int max_i = 6;
+        constexpr int max_j = 100;
         for (int i = 0; i < max_i; ++i) {
             for (int j = 0; j < max_j; ++j) {
                 buf[j] = 0x80100000 + (i * max_j + j) * stride;
@@ -190,6 +193,17 @@ void handle_i2c_reg_write(uint8_t reg, uint8_t end_reg, uint8_t* data) {
 }
 
 int main() {
+	stdio_init_all();
+
+    display.init();
+    printf("APS Init\n");
+
+    make_rainbow(display.get_ram());
+    printf("Rainbow written...\n");
+
+	vreg_set_voltage(VREG_VOLTAGE_1_15);
+	sleep_ms(10);
+
 	//set_sys_clock_khz(252000, true);
 	set_sys_clock_khz(270000, true);
 
@@ -199,11 +213,8 @@ int main() {
     printf("Starting\n");
     i2c_slave_if::init(handle_i2c_reg_write);
 
-    display.init();
+    display.get_ram().adjust_clock();
     printf("APS Init\n");
-
-    make_rainbow(display.get_ram());
-    printf("Rainbow written...\n");
 
     display.run();
     printf("Display failed\n");

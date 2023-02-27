@@ -15,6 +15,7 @@ namespace pimoroni {
             gpio_disable_pulls(pin_d0 + i);
         }
 
+        pio_prog = &sram_reset_program;
         pio_offset = pio_add_program(pio, &sram_reset_program);
         pio_sm = pio_claim_unused_sm(pio, true);
         aps6404_reset_program_init(pio, pio_sm, pio_offset, pin_csn, pin_d0);
@@ -27,22 +28,34 @@ namespace pimoroni {
         pio_sm_put_blocking(pio, pio_sm, 0x00000007u);
         pio_sm_put_blocking(pio, pio_sm, 0x35000000u);
         sleep_us(500);
-        pio_sm_set_enabled(pio, pio_sm, false);
 
-        pio_remove_program(pio, &sram_reset_program, pio_offset);
-
-        if (clock_get_hz(clk_sys) < 130000000) {
-            pio_offset = pio_add_program(pio, &sram_slow_program);
-            aps6404_program_init(pio, pio_sm, pio_offset, pin_csn, pin_d0, true);
-        }
-        else {
-            pio_offset = pio_add_program(pio, &sram_program);
-            aps6404_program_init(pio, pio_sm, pio_offset, pin_csn, pin_d0, false);
-        }
+        adjust_clock();
 
         // Claim DMA channels
         dma_channel = dma_claim_unused_channel(true);
         read_cmd_dma_channel = dma_claim_unused_channel(true);
+    }
+
+    void APS6404::adjust_clock() {
+        pio_sm_set_enabled(pio, pio_sm, false);
+        
+        pio_remove_program(pio, pio_prog, pio_offset);
+
+        if (clock_get_hz(clk_sys) > 280000000) {
+            pio_prog = &sram_slow_program;
+            pio_offset = pio_add_program(pio, &sram_slow_program);
+            aps6404_program_init(pio, pio_sm, pio_offset, pin_csn, pin_d0, true, 2.f);
+        }
+        else if (clock_get_hz(clk_sys) < 130000000) {
+            pio_prog = &sram_slow_program;
+            pio_offset = pio_add_program(pio, &sram_slow_program);
+            aps6404_program_init(pio, pio_sm, pio_offset, pin_csn, pin_d0, true, 1.f);
+        }
+        else {
+            pio_prog = &sram_program;
+            pio_offset = pio_add_program(pio, &sram_program);
+            aps6404_program_init(pio, pio_sm, pio_offset, pin_csn, pin_d0, false, 1.f);
+        }
     }
 
     void APS6404::write(uint32_t addr, uint32_t* data, uint32_t len_in_words) {

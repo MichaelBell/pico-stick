@@ -130,7 +130,7 @@ void aps6404_reset_program_init(PIO pio, uint sm, uint offset, uint csn, uint mo
     pio_sm_init(pio, sm, offset, &c);
     pio_sm_set_enabled(pio, sm, true);
 }
-void aps6404_program_init(PIO pio, uint sm, uint offset, uint csn, uint mosi, bool slow) {
+void aps6404_program_init(PIO pio, uint sm, uint offset, uint csn, uint mosi, bool slow, float clkdiv) {
     pio_gpio_init(pio, csn);
     pio_gpio_init(pio, csn + 1);
     pio_gpio_init(pio, mosi);
@@ -147,6 +147,7 @@ void aps6404_program_init(PIO pio, uint sm, uint offset, uint csn, uint mosi, bo
     sm_config_set_out_shift(&c, false, true, 32);
     sm_config_set_set_pins(&c, mosi, 4);
     sm_config_set_sideset_pins(&c, csn);
+    sm_config_set_clkdiv(&c, clkdiv);
 
     pio_sm_init(pio, sm, offset, &c);
     pio_sm_set_enabled(pio, sm, true);

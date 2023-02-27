@@ -18,7 +18,7 @@ extern "C" {
 using namespace pico_stick;
 
 #define PROFILE_SCANLINE 1
-#define PROFILE_SCANLINE_PEAK 2
+#define PROFILE_SCANLINE_PEAK 0
 #define PROFILE_VSYNC 0
 
 namespace {

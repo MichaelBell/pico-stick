@@ -17,6 +17,8 @@ namespace pimoroni {
 
             void init();
 
+            void adjust_clock();
+
             // Start a write, this completes asynchronously, this function blocks if another 
             // transfer is already in progress
             // Writes should not cross page boundaries when running faster than 84MHz
@@ -49,8 +51,9 @@ namespace pimoroni {
             uint pin_d0;   // D0, D1, D2, D3 must be consecutive
 
             PIO pio;
-            uint pio_sm;
-            uint pio_offset;
+            uint16_t pio_sm;
+            uint16_t pio_offset;
+            const pio_program* pio_prog;
 
             uint dma_channel;
             uint read_cmd_dma_channel;
