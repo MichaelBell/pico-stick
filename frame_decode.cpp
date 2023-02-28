@@ -17,6 +17,7 @@ bool FrameDecode::read_headers() {
 
     if (buffer[0] != 0x4F434950) {
         // Magic word wrong.
+        printf("Magic word should be 0x4F434950, got %08lx\n", buffer[0]);
         return false;
     }
 

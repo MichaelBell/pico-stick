@@ -28,10 +28,10 @@ public:
 
     DisplayDriver(PIO pio = pio1)
         : frame_data(ram)
-        , current_res(pico_stick::RESOLUTION_720x480)
+        , current_res(pico_stick::RESOLUTION_800x600)
         , ram(PIN_RAM_CS, PIN_RAM_D0)
         , dvi0{
-            .timing{&dvi_timing_720x480p_60hz},
+            .timing{&dvi_timing_800x600p_60hz},
             .ser_cfg{
                 .pio = pio,
                 .sm_tmds = {0, 1, 2},

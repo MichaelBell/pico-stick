@@ -17,9 +17,9 @@ extern "C" {
 
 using namespace pico_stick;
 
-#define PROFILE_SCANLINE 1
+#define PROFILE_SCANLINE 0
 #define PROFILE_SCANLINE_PEAK 0
-#define PROFILE_VSYNC 0
+#define PROFILE_VSYNC 1
 
 namespace {
     void core1_main() {
@@ -87,7 +87,7 @@ void DisplayDriver::run() {
     printf("DVI Initialized\n");
     sem_release(&dvi_start_sem);
 
-    constexpr int num_sprites = MAX_SPRITES;
+    constexpr int num_sprites = 16;
 #if 0
     int16_t x[num_sprites] = { 0, 100, 200, 300, 400 };
     int16_t y[num_sprites] = { 0, 200, 100, 300, 200 };
@@ -114,6 +114,8 @@ void DisplayDriver::run() {
         #endif
     }
 #endif
+    frame_data_address_offset = 0;
+    int frame_address_dir = 4;
 
     uint heartbeat = 9;
 #if PROFILE_SCANLINE && PROFILE_SCANLINE_PEAK
@@ -225,6 +227,13 @@ void DisplayDriver::run() {
             else
                 set_sprite(i, ((i + heartbeat) >> 3) & 3, blend_mode, x[i] >> sprite_move_shift, y[i] >> sprite_move_shift);
                 #endif
+        }
+        frame_data_address_offset += frame_address_dir;
+        if (frame_data_address_offset >= 255 * 4) {
+            frame_address_dir = -4;
+        }
+        else if (frame_data_address_offset <= 0) {
+            frame_address_dir = 4;
         }
     }
 }

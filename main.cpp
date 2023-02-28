@@ -52,12 +52,12 @@ void make_rainbow(APS6404& aps6404) {
         uint32_t* buf = colour_buf[0];
         buf[0] = 0x4F434950;
         buf[1] = 0x01010101;
-        //buf[2] = 0x03200000; //800
-        buf[2] = 0x02d00000; //720
+        buf[2] = 0x03200000; //800
+        //buf[2] = 0x02d00000; //720
         //buf[2] = 0x02800000; //640
-        //buf[3] = 0x02580000;  // 600
+        buf[3] = 0x02580000;  // 600
         //buf[3] = 0x02400000; // 576
-        buf[3] = 0x01e00000;  // 480
+        //buf[3] = 0x01e00000;  // 480
         buf[4] = 0x00000001;
         buf[5] = 0x00010258;
         buf[6] = 0x00040000;
@@ -200,14 +200,15 @@ int main() {
 
     make_rainbow(display.get_ram());
     printf("Rainbow written...\n");
-
-	vreg_set_voltage(VREG_VOLTAGE_1_15);
+    
+	vreg_set_voltage(VREG_VOLTAGE_1_25);
 	sleep_ms(10);
 
 	//set_sys_clock_khz(252000, true);
-	set_sys_clock_khz(270000, true);
+	set_sys_clock_khz(400000, true);
 
 	stdio_init_all();
+    display.get_ram().adjust_clock();
 
     //sleep_ms(5000);
     printf("Starting\n");
@@ -218,6 +219,9 @@ int main() {
 
     display.run();
     printf("Display failed\n");
+
+    printf("Resetting to DFU mode\n");
+    reset_usb_boot(0, 0);
     
     while (true);
 }

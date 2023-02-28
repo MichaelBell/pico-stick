@@ -41,20 +41,20 @@ namespace pimoroni {
         
         pio_remove_program(pio, pio_prog, pio_offset);
 
-        if (clock_get_hz(clk_sys) > 280000000) {
-            pio_prog = &sram_slow_program;
-            pio_offset = pio_add_program(pio, &sram_slow_program);
-            aps6404_program_init(pio, pio_sm, pio_offset, pin_csn, pin_d0, true, 2.f);
+        if (clock_get_hz(clk_sys) > 290000000) {
+            pio_prog = &sram_fast_program;
+            pio_offset = pio_add_program(pio, &sram_fast_program);
+            aps6404_program_init(pio, pio_sm, pio_offset, pin_csn, pin_d0, false, true);
         }
         else if (clock_get_hz(clk_sys) < 130000000) {
             pio_prog = &sram_slow_program;
             pio_offset = pio_add_program(pio, &sram_slow_program);
-            aps6404_program_init(pio, pio_sm, pio_offset, pin_csn, pin_d0, true, 1.f);
+            aps6404_program_init(pio, pio_sm, pio_offset, pin_csn, pin_d0, true, false);
         }
         else {
             pio_prog = &sram_program;
             pio_offset = pio_add_program(pio, &sram_program);
-            aps6404_program_init(pio, pio_sm, pio_offset, pin_csn, pin_d0, false, 1.f);
+            aps6404_program_init(pio, pio_sm, pio_offset, pin_csn, pin_d0, false, false);
         }
     }
 
