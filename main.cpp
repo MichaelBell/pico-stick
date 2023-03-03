@@ -14,8 +14,15 @@
 #include "display.hpp"
 #include "aps6404.hpp"
 
+#include "constants.hpp"
+
+#if !SUPPORT_WIDE_MODES
 #define FRAME_WIDTH 1312
-#define FRAME_HEIGHT 600
+#define FRAME_HEIGHT 576
+#else
+#define FRAME_WIDTH 1280
+#define FRAME_HEIGHT 720
+#endif
 
 using namespace pimoroni;
 
@@ -52,21 +59,26 @@ void make_rainbow(APS6404& aps6404) {
         uint32_t* buf = colour_buf[0];
         buf[0] = 0x4F434950;
         buf[1] = 0x01010101;
-        buf[2] = 0x03200000; //800
-        //buf[2] = 0x02d00000; //720
+        //buf[2] = 0x05000000; //1280
+        //buf[2] = 0x03c00000; //960
+        //buf[2] = 0x03200000; //800
+        buf[2] = 0x02d00000; //720
         //buf[2] = 0x02800000; //640
-        buf[3] = 0x02580000;  // 600
+        //buf[3] = 0x02d00000; //720
+        //buf[3] = 0x02580000;  // 600
         //buf[3] = 0x02400000; // 576
-        //buf[3] = 0x01e00000;  // 480
+        //buf[3] = 0x021c0000; // 540
+        buf[3] = 0x01e00000;  // 480
+        //buf[3] = 0x01c20000; // 450
         buf[4] = 0x00000001;
-        buf[5] = 0x00010258;
+        buf[5] = 0x00010000 + FRAME_HEIGHT;
         buf[6] = 0x00040000;
         aps6404.write(addr, buf, 7);
         addr += 7 * 4;
 
         // Frame table
-        constexpr int max_i = 6;
-        constexpr int max_j = 100;
+        constexpr int max_i = 9;
+        constexpr int max_j = FRAME_HEIGHT / max_i;
         for (int i = 0; i < max_i; ++i) {
             for (int j = 0; j < max_j; ++j) {
                 buf[j] = 0x80100000 + (i * max_j + j) * stride;
@@ -201,11 +213,20 @@ int main() {
     make_rainbow(display.get_ram());
     printf("Rainbow written...\n");
     
-	vreg_set_voltage(VREG_VOLTAGE_1_25);
+    const uint32_t clock_khz = display.get_clock_khz();
+    if (clock_khz < 300000) {
+        vreg_set_voltage(VREG_VOLTAGE_1_20);
+    }
+    else if (clock_khz < 380000) {
+        vreg_set_voltage(VREG_VOLTAGE_1_25);
+    }
+    else {
+        vreg_set_voltage(VREG_VOLTAGE_1_30);
+    }
 	sleep_ms(10);
 
-	//set_sys_clock_khz(252000, true);
-	set_sys_clock_khz(400000, true);
+	set_sys_clock_khz(clock_khz, true);
+	//set_sys_clock_khz(400000, true);
 
 	stdio_init_all();
     display.get_ram().adjust_clock();

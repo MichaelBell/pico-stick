@@ -87,7 +87,7 @@ void DisplayDriver::run() {
     printf("DVI Initialized\n");
     sem_release(&dvi_start_sem);
 
-    constexpr int num_sprites = 16;
+    constexpr int num_sprites = MAX_SPRITES;
 #if 0
     int16_t x[num_sprites] = { 0, 100, 200, 300, 400 };
     int16_t y[num_sprites] = { 0, 200, 100, 300, 200 };
@@ -222,12 +222,13 @@ void DisplayDriver::run() {
             #else
             blend_mode = BLEND_BLEND;
             #endif
-            if (i < 32)
+            if (i & 1)
                 set_sprite(i, 4, blend_mode, x[i] >> sprite_move_shift, y[i] >> sprite_move_shift);
             else
                 set_sprite(i, ((i + heartbeat) >> 3) & 3, blend_mode, x[i] >> sprite_move_shift, y[i] >> sprite_move_shift);
                 #endif
         }
+        
         frame_data_address_offset += frame_address_dir;
         if (frame_data_address_offset >= 255 * 4) {
             frame_address_dir = -4;

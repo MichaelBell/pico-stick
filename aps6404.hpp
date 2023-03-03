@@ -17,6 +17,7 @@ namespace pimoroni {
 
             void init();
 
+            // Must be called if the system clock rate is changed after init().
             void adjust_clock();
 
             // Start a write, this completes asynchronously, this function blocks if another 
