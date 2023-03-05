@@ -48,6 +48,7 @@ target_compile_definitions(${NAME} PRIVATE
   PICO_DEFAULT_UART=1
   PICO_DEFAULT_UART_TX_PIN=20
   PICO_DEFAULT_UART_RX_PIN=21
+  PICO_HEAP_SIZE=1024
   )
 
 pico_generate_pio_header(${NAME} ${CMAKE_CURRENT_LIST_DIR}/aps6404.pio)

@@ -18,8 +18,10 @@ extern "C" {
 using namespace pico_stick;
 
 #define PROFILE_SCANLINE 0
-#define PROFILE_SCANLINE_PEAK 0
-#define PROFILE_VSYNC 1
+#define PROFILE_SCANLINE_MAX 0
+#define PROFILE_VSYNC 0
+
+#define TEST_SPRITES 0
 
 namespace {
     void core1_main() {
@@ -77,12 +79,18 @@ void DisplayDriver::init() {
             patches[i][j].data = nullptr;
         }
     }
-}
 
-#if PROFILE_SCANLINE
-static uint32_t scanline_prep_time[2] = {0};
-static int scanline_sprites[2] = {0};
-#endif
+    // This calculation shouldn't overflow for any resolution we could plausibly support.
+    const uint32_t pixel_clk_khz = dvi0.timing->bit_clk_khz / 10;
+    const uint32_t scanline_pixels = dvi0.timing->h_front_porch + dvi0.timing->h_sync_width + dvi0.timing->h_back_porch + dvi0.timing->h_active_pixels;
+    diags.available_vsync_time = (1000u * (dvi0.timing->v_front_porch + dvi0.timing->v_sync_width + dvi0.timing->v_back_porch) * 
+                                  scanline_pixels) / pixel_clk_khz;
+    diags.available_total_scanline_time = (1000u * dvi0.timing->v_active_lines * scanline_pixels) / pixel_clk_khz;
+    diags.available_time_per_scanline = (1000u * scanline_pixels) / pixel_clk_khz;
+    printf("Available VSYNC time: %luus\n", diags.available_vsync_time);
+    printf("Available time for all active scanlines: %luus\n", diags.available_total_scanline_time);
+    printf("Available time per scanline: %luus\n", diags.available_time_per_scanline);
+}
 
 void DisplayDriver::run() {
 	multicore_launch_core1(core1_main);
@@ -91,13 +99,8 @@ void DisplayDriver::run() {
     printf("DVI Initialized\n");
     sem_release(&dvi_start_sem);
 
+#if TEST_SPRITES
     constexpr int num_sprites = MAX_SPRITES;
-#if 0
-    int16_t x[num_sprites] = { 0, 100, 200, 300, 400 };
-    int16_t y[num_sprites] = { 0, 200, 100, 300, 200 };
-    int16_t xdir[num_sprites] = { 1, -1, 1, -1, 2 };
-    int16_t ydir[num_sprites] = { 1, 1, -1, -1, 1 };
-#else
     int32_t x[num_sprites];
     int32_t y[num_sprites];
     int32_t xdir[num_sprites];
@@ -118,22 +121,16 @@ void DisplayDriver::run() {
         #endif
     }
 #endif
-    frame_data_address_offset = 0;
-    int frame_address_dir = 4;
 
+    bool first_frame = true;
     uint heartbeat = 9;
-#if PROFILE_SCANLINE && PROFILE_SCANLINE_PEAK
-    uint32_t max_scanline_time = 0;
-#endif
     while (true) {
         if (++heartbeat >= 32) {
             heartbeat = 0;
             gpio_xor_mask(1u << PIN_HEARTBEAT);
         }
 
-#if PROFILE_VSYNC
-        uint32_t start_time = time_us_32();
-#endif
+        uint32_t vsync_start_time = time_us_32();
 
         if (!frame_data.read_headers()) {
             // TODO!
@@ -160,35 +157,31 @@ void DisplayDriver::run() {
         ram.wait_for_finish_blocking();
         line_counter = 2;
 
+        diags.peak_scanline_time = std::max(diags.peak_scanline_time, std::max(diags.scanline_max_prep_time[0], diags.scanline_max_prep_time[1]));
+        diags.vsync_time = time_us_32() - vsync_start_time;
 #if PROFILE_SCANLINE
-#if PROFILE_SCANLINE_PEAK
-        if (std::max(scanline_prep_time[0], scanline_prep_time[1]) > max_scanline_time) {
-            int max_sprites;
-            if (scanline_prep_time[0] > scanline_prep_time[1]) {
-                max_scanline_time = scanline_prep_time[0];
-                max_sprites = scanline_sprites[0];
-            }
-            else {
-                max_scanline_time = scanline_prep_time[1];
-                max_sprites = scanline_sprites[1];
-            }
-            
-            printf("Ln %luus, spr %d, lt: %d\n", max_scanline_time, max_sprites, dvi0.total_late_scanlines);
-        }
-#if PROFILE_SCANLINE_PEAK == 1
-        max_scanline_time = 0;
-        scanline_sprites[0] = 0;
-        scanline_sprites[1] = 0;
+#if PROFILE_SCANLINE_MAX
+        printf("Ln %luus, lt: %d\n", diags.scanline_max_prep_time[0] + diags.scanline_max_prep_time[1], dvi0.total_late_scanlines);
+#else
+        printf("Ln %luus, lt: %d\n", diags.scanline_total_prep_time[0] + diags.scanline_total_prep_time[1], dvi0.total_late_scanlines);
 #endif
-#else 
-        printf("Ln %luus, lt: %d\n", scanline_prep_time[0] + scanline_prep_time[1], dvi0.total_late_scanlines);
-#endif
-        scanline_prep_time[0] = 0;
-        scanline_prep_time[1] = 0;
 #endif
 #if PROFILE_VSYNC
-        printf("VSYNC %luus, late: %d\n", time_us_32() - start_time, dvi0.total_late_scanlines);
+        printf("VSYNC %luus, late: %d\n", diags.vsync_time, dvi0.total_late_scanlines);
 #endif
+
+        if (diags_callback) {
+            diags.total_late_scanlines = dvi0.total_late_scanlines;
+            diags_callback(diags);
+        }
+
+        // Clear per frame diags
+        diags.scanline_total_prep_time[0] = 0;
+        diags.scanline_total_prep_time[1] = 0;
+        diags.scanline_max_prep_time[0] = 0;
+        diags.scanline_max_prep_time[1] = 0;
+        diags.scanline_max_sprites[0] = 0;
+        diags.scanline_max_sprites[1] = 0;
 
         main_loop();
 
@@ -197,6 +190,7 @@ void DisplayDriver::run() {
         // Grace period for slow RAM bank switch
         sleep_us(10);
 
+#if TEST_SPRITES
         // Temp: Move our sprites around
         for (int i = 0; i < num_sprites; ++i) {
             x[i] += xdir[i];
@@ -232,13 +226,20 @@ void DisplayDriver::run() {
                 set_sprite(i, ((i + heartbeat) >> 3) & 3, blend_mode, x[i] >> sprite_move_shift, y[i] >> sprite_move_shift);
                 #endif
         }
-        
+#endif
+
+#if 0
         frame_data_address_offset += frame_address_dir;
         if (frame_data_address_offset >= 255 * 4) {
             frame_address_dir = -4;
         }
         else if (frame_data_address_offset <= 0) {
             frame_address_dir = 4;
+        }
+#endif
+
+        if (first_frame) {
+            dvi0.total_late_scanlines = 0;
         }
     }
 }
@@ -293,10 +294,13 @@ void DisplayDriver::clear_sprite(int8_t i) {
     sprites[i].set_sprite_table_idx(-1);
 }
 
+void DisplayDriver::clear_late_scanlines() {
+    dvi0.total_late_scanlines = 0;
+}
+
 void DisplayDriver::prepare_scanline_core0(int line_number, uint32_t* pixel_data, uint32_t* tmds_buf) {
-#if PROFILE_SCANLINE
     uint32_t start = time_us_32();
-#endif
+
     int i;
     for (i = 0; i < MAX_PATCHES_PER_LINE; ++i) {
         if (patches[line_number][i].data) {
@@ -308,21 +312,16 @@ void DisplayDriver::prepare_scanline_core0(int line_number, uint32_t* pixel_data
         }
     }
     tmds_encode_fullres_15bpp(pixel_data, tmds_15bpp_lut, tmds_buf, frame_data.config.h_length);
-#if PROFILE_SCANLINE
-#if PROFILE_SCANLINE_PEAK
-    scanline_prep_time[0] = std::max(time_us_32() - start, scanline_prep_time[0]);
-    scanline_sprites[0] = std::max(i, scanline_sprites[0]);
-#else    
-    scanline_prep_time[0] += time_us_32() - start;
-    scanline_sprites[0] += i;
-#endif
-#endif
+
+    const uint32_t scanline_time = time_us_32() - start;
+    diags.scanline_max_prep_time[0] = std::max(scanline_time, diags.scanline_max_prep_time[0]);
+    diags.scanline_max_sprites[0] = std::max(uint32_t(i), diags.scanline_max_sprites[0]);
+    diags.scanline_total_prep_time[0] += scanline_time;
 }    
 
 void DisplayDriver::prepare_scanline_core1(int line_number, uint32_t* pixel_data, uint32_t* tmds_buf) {
-#if PROFILE_SCANLINE
     uint32_t start = time_us_32();
-#endif
+
     int i;
     for (i = 0; i < MAX_PATCHES_PER_LINE; ++i) {
         if (patches[line_number][i].data) {
@@ -334,15 +333,11 @@ void DisplayDriver::prepare_scanline_core1(int line_number, uint32_t* pixel_data
         }
     }
     tmds_encode_fullres_15bpp(pixel_data, tmds_15bpp_lut, tmds_buf, frame_data.config.h_length);
-#if PROFILE_SCANLINE
-#if PROFILE_SCANLINE_PEAK
-    scanline_prep_time[1] = std::max(time_us_32() - start, scanline_prep_time[1]);
-    scanline_sprites[1] = std::max(i, scanline_sprites[1]);
-#else    
-    scanline_prep_time[1] += time_us_32() - start;
-    scanline_sprites[1] += i;
-#endif
-#endif
+
+    const uint32_t scanline_time = time_us_32() - start;
+    diags.scanline_max_prep_time[1] = std::max(scanline_time, diags.scanline_max_prep_time[1]);
+    diags.scanline_max_sprites[1] = std::max(uint32_t(i), diags.scanline_max_sprites[1]);
+    diags.scanline_total_prep_time[1] += scanline_time;
 }    
 
 void DisplayDriver::read_two_lines(uint idx) {

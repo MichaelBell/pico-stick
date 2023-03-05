@@ -68,11 +68,24 @@ public:
     pimoroni::APS6404 &get_ram() { return ram; }
     uint32_t get_clock_khz() { return dvi0.timing->bit_clk_khz; }
 
-    // Diagnostic data
+    // Diagnostic data - all times in us.
     struct Diags {
-
+        uint32_t scanline_total_prep_time[2] = {0, 0};
+        uint32_t scanline_max_prep_time[2] = {0, 0};
+        uint32_t scanline_max_sprites[2] = {0, 0};
+        uint32_t vsync_time = 0;
+        uint32_t peak_scanline_time = 0;
+        uint32_t total_late_scanlines = 0;
+        uint32_t available_total_scanline_time;
+        uint32_t available_time_per_scanline;
+        uint32_t available_vsync_time;
     };
-    const Diags* get_diags() const { return &diags; }
+    const Diags& get_diags() const { return diags; }
+    void clear_peak_scanline_time() { diags.peak_scanline_time = 0; }
+    void clear_late_scanlines();
+
+    // Set this callback to get diags info each frame before it is cleared
+    void (*diags_callback)(const Diags&) = nullptr;
 
 private:
     friend class Sprite;

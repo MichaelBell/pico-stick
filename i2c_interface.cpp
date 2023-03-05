@@ -59,7 +59,7 @@ namespace {
                 cxt->data_written = false;
             } else if (cxt->cur_register >= I2C_SPRITE_REG_BASE && cxt->cur_register < I2C_SPRITE_REG_BASE + MAX_SPRITES) {
                 // save into memory
-                cxt->sprite_mem[cxt->cur_register + cxt->access_idx] = i2c_read_byte(i2c);
+                cxt->sprite_mem[cxt->cur_register * I2C_SPRITE_DATA_LEN + cxt->access_idx] = i2c_read_byte(i2c);
                 if (++cxt->access_idx == I2C_SPRITE_DATA_LEN) {
                     cxt->access_idx = 0;
                     ++cxt->cur_register;
@@ -90,6 +90,7 @@ namespace {
             break;
         case I2C_SLAVE_FINISH: // master has signalled Stop / Restart
             if (cxt->data_written) {
+                //printf("I2C: W%02hhx-%02hhx\n", cxt->first_register, cxt->cur_register-1);
                 if (cxt->first_register >= I2C_SPRITE_REG_BASE && cxt->first_register < I2C_SPRITE_REG_BASE + MAX_SPRITES) {
                     if (i2c_sprite_written_callback) {
                         if (cxt->access_idx == 0) cxt->cur_register--;
@@ -101,6 +102,10 @@ namespace {
                     }
                 }
             }
+            else if (cxt->cur_register > cxt->first_register) {
+                //printf("I2C: R%02hhx-%02hhx\n", cxt->first_register, cxt->cur_register-1);
+            }
+            cxt->got_register = false;
             break;
         default:
             break;

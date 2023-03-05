@@ -16,6 +16,8 @@ void Sprite::update_sprite(FrameDecode& frame_data) {
 }
 
 void Sprite::setup_patches(DisplayDriver& disp) {
+    if (idx < 0) return;
+
     for (int i = 0; i < header.height; ++i) {
         const int line_idx = y + i;
         if (line_idx < 0 || line_idx >= disp.frame_data.config.v_length) continue;

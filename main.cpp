@@ -210,14 +210,24 @@ void handle_i2c_reg_write(uint8_t reg, uint8_t end_reg, uint8_t* regs) {
     // Subtract 0xC0 from regs so that register numbers match addresses
     regs -= 0xC0;
 
-    if (reg <= 0xF3 && end_reg >= 0xF0) {
+    #define REG_WRITTEN(R) (reg <= R && end_reg >= R)
+    #define REG_WRITTEN2(R_START, R_END) (reg <= R_END && end_reg >= R_START)
+
+    if (REG_WRITTEN(0xD3)) {
+        display.clear_peak_scanline_time();
+    }
+    if (REG_WRITTEN(0xD4)) {
+        display.clear_late_scanlines();
+    }
+
+    if (REG_WRITTEN2(0xF3, 0xF0)) {
         int offset = (regs[0xF3] << 24) |
                      (regs[0xF2] << 16) |
                      (regs[0xF1] << 8) |
                      (regs[0xF0] & 0xFC);
         display.set_frame_data_address_offset(offset);
     }
-    if (reg <= 0xFF && end_reg >= 0xFF) {
+    if (REG_WRITTEN(0xFF)) {
         if (regs[0xFF] == 0x01) {
             printf("Resetting\n");
             watchdog_reboot(0, 0, 0);
@@ -227,30 +237,45 @@ void handle_i2c_reg_write(uint8_t reg, uint8_t end_reg, uint8_t* regs) {
             reset_usb_boot(0, 0);
         }
     }
+
+    #undef REG_WRITTEN
+    #undef REG_WRITTEN2
 }
 
 void handle_i2c_sprite_write(uint8_t sprite, uint8_t end_sprite, uint8_t* sprite_data) {
     for (int i = sprite; i <= end_sprite; ++i) {
         uint8_t* sprite_ptr = sprite_data + 7 * i;
 
-        int16_t sprite_idx = (sprite_ptr[2] << 8) | sprite_ptr[1];
+        int16_t sprite_idx = (int8_t(sprite_ptr[2]) << 8) | sprite_ptr[1];
         int16_t x = (sprite_ptr[4] << 8) | sprite_ptr[3];
         int16_t y = (sprite_ptr[6] << 8) | sprite_ptr[5];
-        display.set_sprite(i, sprite_idx, (pico_stick::BlendMode)sprite_data[0], x, y);
+        display.set_sprite(i, sprite_idx, (pico_stick::BlendMode)sprite_ptr[0], x, y);
     }
 }
 
-void set_i2c_reg_data_for_frame(uint8_t* regs) {
+void set_i2c_reg_data_for_frame(uint8_t* regs, const DisplayDriver::Diags& diags) {
     regs -= 0xC0;
-
-    //const auto* diags = display.get_diags();
 
     regs[0xC0] = gpio_get_all() >> 23;
     regs[0xC8] = sio_hw->gpio_hi_in;
+
+    regs[0xD0] = (diags.vsync_time * 200) / diags.available_vsync_time;
+    regs[0xD1] = ((diags.scanline_total_prep_time[0] + diags.scanline_total_prep_time[1]) * 100) / diags.available_total_scanline_time;
+    regs[0xD2] = std::max(diags.scanline_max_prep_time[0], diags.scanline_max_prep_time[1]);
+    regs[0xD3] = diags.peak_scanline_time;
+    regs[0xD4] = diags.total_late_scanlines;
+    regs[0xD5] = (diags.total_late_scanlines) >> 8;
+    regs[0xD6] = (diags.total_late_scanlines) >> 16;
+    regs[0xD7] = (diags.total_late_scanlines) >> 24;
+    regs[0xD8] = std::max(diags.scanline_max_sprites[0], diags.scanline_max_sprites[1]);
+}
+
+void handle_display_diags_callback(const DisplayDriver::Diags& diags) {
+    set_i2c_reg_data_for_frame(i2c_slave_if::get_high_reg_table(), diags);
 }
 
 void setup_i2c_reg_data(uint8_t* regs) {
-    set_i2c_reg_data_for_frame(regs);
+    set_i2c_reg_data_for_frame(regs, display.get_diags());
 
     // Subtract 0xC0 from regs so that register numbers match addresses
     regs -= 0xC0;
@@ -268,6 +293,7 @@ int main() {
 	stdio_init_all();
 
     display.init();
+    display.diags_callback = handle_display_diags_callback;
     printf("APS Init\n");
 
     uint8_t* regs = i2c_slave_if::init(handle_i2c_sprite_write, handle_i2c_reg_write);
