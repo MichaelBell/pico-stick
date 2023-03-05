@@ -17,7 +17,10 @@ set(PICO_COPY_TO_RAM 1)
 # Initialize the SDK
 pico_sdk_init()
 
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Werror")
+# Enforce consistent compile options.
+# For the moment, don't use -O3 options that increase code size significantly
+add_compile_options(-Wall -Werror -O2 -fgcse-after-reload -floop-interchange -fpeel-loops -fpredictive-commoning -fsplit-paths -ftree-loop-distribute-patterns -ftree-loop-distribution -ftree-vectorize -ftree-partial-pre -funswitch-loops)
+
 
 add_subdirectory(i2c_slave)
 add_subdirectory(PicoDVI/software/libdvi)
