@@ -63,6 +63,10 @@ void DisplayDriver::init() {
     tmds_double_encode_setup_default_lut(tmds_15bpp_lut);
 
     dvi_init(&dvi0, next_striped_spin_lock_num(), next_striped_spin_lock_num());
+    for (int i = 0; i < NUM_TMDS_BUFFERS; ++i) {
+        void* bufptr = (void*)&tmds_buffers[i * 3 * MAX_FRAME_WIDTH / DVI_SYMBOLS_PER_WORD];
+        queue_add_blocking_u32(&dvi0.q_tmds_free, &bufptr);
+    }
 	sem_init(&dvi_start_sem, 0, 1);
 	hw_set_bits(&bus_ctrl_hw->priority, BUSCTRL_BUS_PRIORITY_PROC1_BITS);
 

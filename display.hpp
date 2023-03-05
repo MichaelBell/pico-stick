@@ -110,4 +110,7 @@ private:
     // Not using this yet but keeping it here to remind us of the memory usage!
     uint32_t tmds_palette_luts[32 * 32 * 12];
     uint32_t* tmds_15bpp_lut = &tmds_palette_luts[32 * 32 * 2];
+
+    // TMDS buffers.  Better to have them here than rely on dynamic allocation
+    uint32_t tmds_buffers[NUM_TMDS_BUFFERS * 3 * MAX_FRAME_WIDTH / DVI_SYMBOLS_PER_WORD];
 };
