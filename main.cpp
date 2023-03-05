@@ -186,22 +186,82 @@ void make_rainbow(APS6404& aps6404) {
 
 DisplayDriver display;
 
-void handle_i2c_reg_write(uint8_t reg, uint8_t end_reg, uint8_t* data) {
-    if (reg == 0x10) {
-        // X scroll
-        //printf("Set X scroll to %hhu\n", *data);
-        display.set_frame_data_address_offset(data[0] * 4);
+// Return default value in 50mV units
+static uint8_t get_default_voltage_for_clock(uint32_t clock_khz) {
+    if (clock_khz < 300000) {
+        return 1200 / 50;
     }
-    if (reg == 0xFF) {
-        if (*data == 0x01) {
+    else if (clock_khz < 380000) {
+        return 1250 / 50;
+    }
+    else {
+        return 1300 / 50;
+    }
+}
+
+static uint8_t get_vreg_select_for_voltage(uint8_t voltage_50mv) {
+    if (voltage_50mv < 1000 / 50) voltage_50mv = 1000 / 50;
+    if (voltage_50mv > 1300 / 50) voltage_50mv = 1300 / 50;
+
+    return voltage_50mv - (1000 / 50) + VREG_VOLTAGE_1_00;
+}
+
+void handle_i2c_reg_write(uint8_t reg, uint8_t end_reg, uint8_t* regs) {
+    // Subtract 0xC0 from regs so that register numbers match addresses
+    regs -= 0xC0;
+
+    if (reg <= 0xF3 && end_reg >= 0xF0) {
+        int offset = (regs[0xF3] << 24) |
+                     (regs[0xF2] << 16) |
+                     (regs[0xF1] << 8) |
+                     (regs[0xF0] & 0xFC);
+        display.set_frame_data_address_offset(offset);
+    }
+    if (reg <= 0xFF && end_reg >= 0xFF) {
+        if (regs[0xFF] == 0x01) {
             printf("Resetting\n");
             watchdog_reboot(0, 0, 0);
         }
-        if (*data == 0x02) {
+        if (regs[0xFF] == 0x02) {
             printf("Resetting to DFU mode\n");
             reset_usb_boot(0, 0);
         }
     }
+}
+
+void handle_i2c_sprite_write(uint8_t sprite, uint8_t end_sprite, uint8_t* sprite_data) {
+    for (int i = sprite; i <= end_sprite; ++i) {
+        uint8_t* sprite_ptr = sprite_data + 7 * i;
+
+        int16_t sprite_idx = (sprite_ptr[2] << 8) | sprite_ptr[1];
+        int16_t x = (sprite_ptr[4] << 8) | sprite_ptr[3];
+        int16_t y = (sprite_ptr[6] << 8) | sprite_ptr[5];
+        display.set_sprite(i, sprite_idx, (pico_stick::BlendMode)sprite_data[0], x, y);
+    }
+}
+
+void set_i2c_reg_data_for_frame(uint8_t* regs) {
+    regs -= 0xC0;
+
+    //const auto* diags = display.get_diags();
+
+    regs[0xC0] = gpio_get_all() >> 23;
+    regs[0xC8] = sio_hw->gpio_hi_in;
+}
+
+void setup_i2c_reg_data(uint8_t* regs) {
+    set_i2c_reg_data_for_frame(regs);
+
+    // Subtract 0xC0 from regs so that register numbers match addresses
+    regs -= 0xC0;
+
+    regs[0xC1] = 2; // LED defaults to heartbeat
+
+    // System info
+    uint32_t clock_10khz = display.get_clock_khz() / 10;
+    regs[0xDC] = clock_10khz & 0xFF;
+    regs[0xDD] = clock_10khz >> 8;
+    regs[0xDE] = get_default_voltage_for_clock(display.get_clock_khz());
 }
 
 int main() {
@@ -210,35 +270,34 @@ int main() {
     display.init();
     printf("APS Init\n");
 
+    uint8_t* regs = i2c_slave_if::init(handle_i2c_sprite_write, handle_i2c_reg_write);
+    setup_i2c_reg_data(regs);
+
     make_rainbow(display.get_ram());
     printf("Rainbow written...\n");
-    
-    const uint32_t clock_khz = display.get_clock_khz();
-    if (clock_khz < 300000) {
-        vreg_set_voltage(VREG_VOLTAGE_1_20);
-    }
-    else if (clock_khz < 380000) {
-        vreg_set_voltage(VREG_VOLTAGE_1_25);
-    }
-    else {
-        vreg_set_voltage(VREG_VOLTAGE_1_30);
-    }
+
+    // Deinit I2C before adjusting clock
+    i2c_slave_if::deinit();
+
+    // Set voltage to value from I2C register - in future this might have been altered since boot.
+    uint vreg_select = get_vreg_select_for_voltage(i2c_slave_if::get_high_reg_table()[0xDE - 0xC0]);
+    hw_write_masked(&vreg_and_chip_reset_hw->vreg, vreg_select << VREG_AND_CHIP_RESET_VREG_VSEL_LSB, VREG_AND_CHIP_RESET_VREG_VSEL_BITS);
 	sleep_ms(10);
 
-	set_sys_clock_khz(clock_khz, true);
-	//set_sys_clock_khz(400000, true);
+	set_sys_clock_khz(display.get_clock_khz(), true);
 
 	stdio_init_all();
     display.get_ram().adjust_clock();
 
-    //sleep_ms(5000);
-    printf("Starting\n");
-    i2c_slave_if::init(handle_i2c_reg_write);
+    // Reinit I2C now clock is set.
+    i2c_slave_if::init(handle_i2c_sprite_write, handle_i2c_reg_write);
 
-    display.get_ram().adjust_clock();
-    printf("APS Init\n");
+    printf("Starting\n");
 
     display.run();
+
+    // If run ever exits, the magic number in the RAM was wrong.
+    // For now we reboot to DFU if that happens
     printf("Display failed\n");
 
     printf("Resetting to DFU mode\n");

@@ -68,6 +68,12 @@ public:
     pimoroni::APS6404 &get_ram() { return ram; }
     uint32_t get_clock_khz() { return dvi0.timing->bit_clk_khz; }
 
+    // Diagnostic data
+    struct Diags {
+
+    };
+    const Diags* get_diags() const { return &diags; }
+
 private:
     friend class Sprite;
 
@@ -113,4 +119,6 @@ private:
 
     // TMDS buffers.  Better to have them here than rely on dynamic allocation
     uint32_t tmds_buffers[NUM_TMDS_BUFFERS * 3 * MAX_FRAME_WIDTH / DVI_SYMBOLS_PER_WORD];
+
+    Diags diags;
 };
