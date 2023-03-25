@@ -20,6 +20,9 @@
         "memory_resource": "cpp",
         "memory": "cpp",
         "fstream": "cpp",
-        "cmath": "cpp"
+        "cmath": "cpp",
+        "vreg.h": "c",
+        "tuple": "cpp",
+        "cstdlib": "c"
     }
 }
