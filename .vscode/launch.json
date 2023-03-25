@@ -10,8 +10,9 @@
             "executable": "${command:cmake.launchTargetPath}",
             "request": "launch",
             "type": "cortex-debug",
-            "servertype": "openocd",
+            "servertype": "external",
             "gdbPath": "/usr/bin/gdb-multiarch",
+            "gdbTarget": "172.31.224.1:3333"
             "device": "RP2040",
             "configFiles": [
                 "interface/picoprobe.cfg",
