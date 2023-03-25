@@ -22,7 +22,6 @@ namespace pimoroni {
 
             // Start a write, this completes asynchronously, this function blocks if another 
             // transfer is already in progress
-            // Writes should not cross page boundaries when running faster than 84MHz
             // Writes should always be <= 1KB.
             void write(uint32_t addr, uint32_t* data, uint32_t len_in_words);
 

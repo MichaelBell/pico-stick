@@ -27,5 +27,5 @@ constexpr int MAX_SPRITE_WIDTH = 64;
 constexpr int MAX_SPRITE_HEIGHT = 64;
 constexpr int MAX_PATCHES_PER_LINE = 10;
 constexpr int NUM_LINE_BUFFERS = 4;
-constexpr int NUM_TMDS_BUFFERS = 8;
+constexpr int NUM_TMDS_BUFFERS = 7;
 #endif
