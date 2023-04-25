@@ -72,7 +72,7 @@ void make_rainbow(APS6404& aps6404) {
         //buf[3] = 0x01c20000; // 450
         buf[4] = 0x00000001;
         buf[5] = 0x00010000 + FRAME_HEIGHT;
-        buf[6] = 0x00040000;
+        buf[6] = 0x00000000;
         aps6404.write(addr, buf, 7);
         addr += 7 * 4;
 
@@ -88,6 +88,7 @@ void make_rainbow(APS6404& aps6404) {
             addr += max_j * 4;
         }
 
+#if 0
         // Sprite table
         printf("Writing sprite table at %lx\n", addr);
         uint32_t* ptr = buf;
@@ -127,9 +128,10 @@ void make_rainbow(APS6404& aps6404) {
         }
 #endif
         aps6404.wait_for_finish_blocking();
+#endif
     }
 
-#if 1
+#if 0
     // This is to display the vista image.  Enable and change stride above to 1280.
     addr = 0x100000;
     uint32_t* buf = (uint32_t*)0x1003c000;
@@ -166,6 +168,7 @@ void make_rainbow(APS6404& aps6404) {
             aps6404.write(addr + (i << 2), &colour_buf[0][i], APS6404::PAGE_SIZE >> 2);
         }
         aps6404.wait_for_finish_blocking();
+        #if 0
         aps6404.read_blocking(addr, colour_buf[1], FRAME_WIDTH / 2);
         if (memcmp(colour_buf[0], colour_buf[1], FRAME_WIDTH * 2)) {
             printf("Colour buf mismatch at addr %lx\n", addr);
@@ -179,6 +182,7 @@ void make_rainbow(APS6404& aps6404) {
             }
 #endif
         }
+        #endif
         addr += stride;
     }
 #endif
@@ -301,6 +305,8 @@ int main() {
 
     make_rainbow(display.get_ram());
     printf("Rainbow written...\n");
+
+    // TODO, wait for I2C to indicate we should start
 
     // Deinit I2C before adjusting clock
     i2c_slave_if::deinit();

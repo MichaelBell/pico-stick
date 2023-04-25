@@ -16,15 +16,15 @@ extern "C"
 class DisplayDriver
 {
 public:
-    static constexpr int PIN_RAM_CS = 2;
-    static constexpr int PIN_RAM_D0 = 4;
-    static constexpr int PIN_VSYNC = 22;
+    static constexpr int PIN_RAM_CS = 17;
+    static constexpr int PIN_RAM_D0 = 19;
+    static constexpr int PIN_VSYNC = 16;
     static constexpr int PIN_HEARTBEAT = 25;
 
-    static constexpr int PIN_HDMI_CLK = 14;
-    static constexpr int PIN_HDMI_D0 = 12;
-    static constexpr int PIN_HDMI_D1 = 18;
-    static constexpr int PIN_HDMI_D2 = 16;
+    static constexpr int PIN_HDMI_CLK = 6;
+    static constexpr int PIN_HDMI_D0 = 8;
+    static constexpr int PIN_HDMI_D1 = 10;
+    static constexpr int PIN_HDMI_D2 = 12;
 
     DisplayDriver(PIO pio = pio1)
         : frame_data(ram)
@@ -37,7 +37,7 @@ public:
                 .sm_tmds = {0, 1, 2},
                 .pins_tmds = {PIN_HDMI_D0, PIN_HDMI_D1, PIN_HDMI_D2},
                 .pins_clk = PIN_HDMI_CLK,
-                .invert_diffpairs = false}}
+                .invert_diffpairs = true}}
     {
     }
 
