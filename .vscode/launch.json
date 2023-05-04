@@ -12,7 +12,7 @@
             "type": "cortex-debug",
             "servertype": "external",
             "gdbPath": "/usr/bin/gdb-multiarch",
-            "gdbTarget": "172.31.224.1:3333",
+            "gdbTarget": "127.0.0.1:3333",
             "device": "RP2040",
             "configFiles": [
                 "interface/picoprobe.cfg",
@@ -27,8 +27,8 @@
                 "monitor reset init"
             ],
             "postRestartCommands": [
-            //    "break main",
-            //    "continue"
+            //  "break main",
+            //  "continue"
             ]
         }
     ]
