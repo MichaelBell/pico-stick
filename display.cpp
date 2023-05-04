@@ -124,6 +124,7 @@ void DisplayDriver::run() {
 
     bool first_frame = true;
     uint heartbeat = 9;
+    //int frame_address_dir = 4;
     while (true) {
         if (++heartbeat >= 32) {
             heartbeat = 0;
@@ -229,17 +230,20 @@ void DisplayDriver::run() {
 #endif
 
 #if 0
-        frame_data_address_offset += frame_address_dir;
-        if (frame_data_address_offset >= 255 * 4) {
-            frame_address_dir = -4;
-        }
-        else if (frame_data_address_offset <= 0) {
-            frame_address_dir = 4;
+        if (heartbeat == 0) {
+            frame_data_address_offset += frame_address_dir;
+            if (frame_data_address_offset >= 255 * 4) {
+                frame_address_dir = -4;
+            }
+            else if (frame_data_address_offset <= 0) {
+                frame_address_dir = 4;
+            }
         }
 #endif
 
         if (first_frame) {
             dvi0.total_late_scanlines = 0;
+            first_frame = false;
         }
     }
 }
@@ -342,14 +346,12 @@ void DisplayDriver::prepare_scanline_core1(int line_number, uint32_t* pixel_data
 
 void DisplayDriver::read_two_lines(uint idx) {
     uint32_t addresses[2];
-    uint8_t* pixel_data_ptr = (uint8_t*)pixel_data[idx];
 
     for (int i = 0; i < 2; ++i) {
         FrameTableEntry& entry = frame_table[line_counter + i];
         addresses[i] = get_line_address(line_counter + i);
         const uint32_t line_length = frame_data.config.h_length * get_pixel_data_len(entry.line_mode());
         line_lengths[idx * 2 + i] = line_length >> 2;
-        pixel_data_ptr += line_length;
     }
 
     ram.multi_read(addresses, &line_lengths[idx * 2], 2, pixel_data[idx]);

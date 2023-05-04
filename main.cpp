@@ -62,8 +62,8 @@ void make_rainbow(APS6404& aps6404) {
         //buf[2] = 0x05000000; //1280
         //buf[2] = 0x03c00000; //960
         //buf[2] = 0x03200000; //800
-        buf[2] = 0x02d00000; //720
-        //buf[2] = 0x02800000; //640
+        //buf[2] = 0x02d00000; //720
+        buf[2] = 0x02800000; //640
         //buf[3] = 0x02d00000; //720
         //buf[3] = 0x02580000;  // 600
         //buf[3] = 0x02400000; // 576
@@ -159,7 +159,7 @@ void make_rainbow(APS6404& aps6404) {
     for (int y = 0; y < FRAME_HEIGHT; ++y) {
         buf = (uint16_t*)(colour_buf[0]);
         for (int x = 0; x < FRAME_WIDTH; ++x) {
-            *buf++ = from_hsv((1.0f * x) / (FRAME_WIDTH / 2), (1.0f * y) / FRAME_HEIGHT, (1.0f * (y % 20)) / 20);
+            *buf++ = 0x0001 * y + 0x0400 * (x & 0x1F); //from_hsv((1.0f * x) / (FRAME_WIDTH / 2), (1.0f * y) / FRAME_HEIGHT, (1.0f * (y % 20)) / 20);
             //*buf++ = from_hsv((1.0f * x) / FRAME_WIDTH, 1.f, 1.f);
             //*buf++ = x + y * FRAME_WIDTH;
         }

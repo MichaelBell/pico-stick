@@ -24,5 +24,6 @@
         "vreg.h": "c",
         "tuple": "cpp",
         "cstdlib": "c"
-    }
+    },
+    "cortex-debug.variableUseNaturalFormat": false
 }
