@@ -48,6 +48,9 @@ target_compile_definitions(${NAME} PRIVATE
   PICO_HEAP_SIZE=1024
   )
 
+set_target_properties(${NAME} PROPERTIES PICO_TARGET_LINKER_SCRIPT ${CMAKE_CURRENT_LIST_DIR}/memmap.ld)
+pico_add_link_depend(${NAME} ${CMAKE_CURRENT_LIST_DIR}/memmap.ld)
+
 pico_generate_pio_header(${NAME} ${CMAKE_CURRENT_LIST_DIR}/aps6404.pio)
 
 # Include required libraries
@@ -64,17 +67,17 @@ target_link_libraries(${NAME}
 )
 
 # create map/bin/hex file etc.
-pico_add_extra_outputs(${NAME})
+#pico_add_extra_outputs(${NAME})
 
 pico_enable_stdio_usb(${NAME} 0)
 pico_enable_stdio_uart(${NAME} 1)
 
 # Set up files for the release packages
-install(FILES
-    ${CMAKE_CURRENT_BINARY_DIR}/${NAME}.uf2
-    ${CMAKE_CURRENT_LIST_DIR}/README.md
-    DESTINATION .
-)
+#install(FILES
+#    ${CMAKE_CURRENT_BINARY_DIR}/${NAME}.uf2
+#    ${CMAKE_CURRENT_LIST_DIR}/README.md
+#    DESTINATION .
+#)
 
 set(CPACK_INCLUDE_TOPLEVEL_DIRECTORY OFF)
 set(CPACK_GENERATOR "ZIP" "TGZ")

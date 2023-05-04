@@ -16,6 +16,10 @@
 
 #include "constants.hpp"
 
+// These magic value go into the Watchdog registers, allowing the RP2040 to boot
+// from the entry point in RAM without trying to boot from flash.
+uint32_t __attribute__((section(".wd_data.boot"))) boot_args[4] = {0xb007c0d3, 0x6ff83f2c, 0x20041ff0, 0x20000001};
+
 #if !SUPPORT_WIDE_MODES
 #define FRAME_WIDTH 1312
 #define FRAME_HEIGHT 576
