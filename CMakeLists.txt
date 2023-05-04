@@ -73,11 +73,11 @@ pico_enable_stdio_usb(${NAME} 0)
 pico_enable_stdio_uart(${NAME} 1)
 
 # Set up files for the release packages
-#install(FILES
-#    ${CMAKE_CURRENT_BINARY_DIR}/${NAME}.uf2
-#    ${CMAKE_CURRENT_LIST_DIR}/README.md
-#    DESTINATION .
-#)
+install(FILES
+    ${CMAKE_CURRENT_BINARY_DIR}/${NAME}.elf
+    ${CMAKE_CURRENT_LIST_DIR}/README.md
+    DESTINATION .
+)
 
 set(CPACK_INCLUDE_TOPLEVEL_DIRECTORY OFF)
 set(CPACK_GENERATOR "ZIP" "TGZ")
