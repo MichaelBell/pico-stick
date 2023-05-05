@@ -74,6 +74,9 @@ public:
     // Set this callback to get diags info each frame before it is cleared
     void (*diags_callback)(const Diags&) = nullptr;
 
+    // Defaults to QPI.  If use_spi true then RAM set back to SPI mode for VSYNC.
+    void set_spi_mode(bool use_spi) { spi_mode = use_spi; }
+
 private:
     friend class Sprite;
 
@@ -121,4 +124,7 @@ private:
     uint32_t tmds_buffers[NUM_TMDS_BUFFERS * 3 * MAX_FRAME_WIDTH / DVI_SYMBOLS_PER_WORD];
 
     Diags diags;
+
+    // Whether the RAM should be in SPI mode for the app processor
+    bool spi_mode = false;
 };

@@ -8,7 +8,11 @@
 #include "aps6404.pio.h"
 
 namespace pimoroni {
-    void APS6404::init() {
+    APS6404::APS6404(uint pin_csn, uint pin_d0, PIO pio)
+                : pin_csn(pin_csn)
+                , pin_d0(pin_d0)
+                , pio(pio)
+    {
         // Initialize data pins
         for (int i = 0; i < 4; ++i) {
             gpio_init(pin_d0 + i);
@@ -18,6 +22,13 @@ namespace pimoroni {
         pio_prog = &sram_reset_program;
         pio_offset = pio_add_program(pio, &sram_reset_program);
         pio_sm = pio_claim_unused_sm(pio, true);
+
+        // Claim DMA channels
+        dma_channel = dma_claim_unused_channel(true);
+        read_cmd_dma_channel = dma_claim_unused_channel(true);
+    }
+
+    void APS6404::init() {
         aps6404_reset_program_init(pio, pio_sm, pio_offset, pin_csn, pin_d0);
 
         sleep_us(200);
@@ -30,31 +41,52 @@ namespace pimoroni {
         sleep_us(500);
 
         adjust_clock();
+    }
 
-        // Claim DMA channels
-        dma_channel = dma_claim_unused_channel(true);
-        read_cmd_dma_channel = dma_claim_unused_channel(true);
+    void APS6404::set_qpi() {
+        pio_sm_set_enabled(pio, pio_sm, false);
+        pio_remove_program(pio, pio_prog, pio_offset);
+
+        pio_prog = &sram_reset_program;
+        pio_offset = pio_add_program(pio, &sram_reset_program);
+        aps6404_reset_program_init(pio, pio_sm, pio_offset, pin_csn, pin_d0);
+        pio_sm_put_blocking(pio, pio_sm, 0x00000007u);
+        pio_sm_put_blocking(pio, pio_sm, 0x35000000u);
+
+        while (!pio_sm_is_tx_fifo_empty(pio, pio_sm) || pio->sm[pio_sm].addr != pio_offset);
+
+        adjust_clock();
+    }
+
+    void APS6404::set_spi() {
+        pio_sm_set_enabled(pio, pio_sm, false);
+        pio_remove_program(pio, pio_prog, pio_offset);
+
+        pio_prog = &sram_reset_qpi_program;
+        pio_offset = pio_add_program(pio, &sram_reset_qpi_program);
+        aps6404_program_init(pio, pio_sm, pio_offset, pin_csn, pin_d0, false, false, true);
+        pio_sm_put_blocking(pio, pio_sm, 0x00000001u);
+        pio_sm_put_blocking(pio, pio_sm, 0xF5000000u);
     }
 
     void APS6404::adjust_clock() {
         pio_sm_set_enabled(pio, pio_sm, false);
-        
         pio_remove_program(pio, pio_prog, pio_offset);
 
         if (clock_get_hz(clk_sys) > 296000000) {
             pio_prog = &sram_fast_program;
             pio_offset = pio_add_program(pio, &sram_fast_program);
-            aps6404_program_init(pio, pio_sm, pio_offset, pin_csn, pin_d0, false, true);
+            aps6404_program_init(pio, pio_sm, pio_offset, pin_csn, pin_d0, false, true, false);
         }
         else if (clock_get_hz(clk_sys) < 130000000) {
             pio_prog = &sram_slow_program;
             pio_offset = pio_add_program(pio, &sram_slow_program);
-            aps6404_program_init(pio, pio_sm, pio_offset, pin_csn, pin_d0, true, false);
+            aps6404_program_init(pio, pio_sm, pio_offset, pin_csn, pin_d0, true, false, false);
         }
         else {
             pio_prog = &sram_program;
             pio_offset = pio_add_program(pio, &sram_program);
-            aps6404_program_init(pio, pio_sm, pio_offset, pin_csn, pin_d0, false, false);
+            aps6404_program_init(pio, pio_sm, pio_offset, pin_csn, pin_d0, false, false, false);
         }
     }
 
@@ -78,6 +110,7 @@ namespace pimoroni {
             channel_config_set_write_increment(&c, false);
             channel_config_set_dreq(&c, pio_get_dreq(pio, pio_sm, true));
             channel_config_set_transfer_data_size(&c, DMA_SIZE_32);
+            channel_config_set_bswap(&c, true);
             
             dma_channel_configure(
                 dma_channel, &c,
@@ -129,6 +162,7 @@ namespace pimoroni {
         channel_config_set_write_increment(&c, true);
         channel_config_set_dreq(&c, pio_get_dreq(pio, pio_sm, false));
         channel_config_set_transfer_data_size(&c, DMA_SIZE_32);
+        channel_config_set_bswap(&c, true);
         if (chain_channel >= 0) {
             channel_config_set_chain_to(&c, chain_channel);
         }

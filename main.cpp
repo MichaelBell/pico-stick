@@ -235,10 +235,13 @@ void handle_i2c_reg_write(uint8_t reg, uint8_t end_reg, uint8_t* regs) {
                      (regs[0xF0] & 0xFC);
         display.set_frame_data_address_offset(offset);
     }
+    if (REG_WRITTEN(0xFA)) {
+        display.set_spi_mode(regs[0xFA] != 0);
+    }
     if (REG_WRITTEN(0xFF)) {
         if (regs[0xFF] == 0x01) {
             printf("Resetting\n");
-            watchdog_reboot(0, 0, 0);
+            watchdog_reboot(0x20000001, 0x15004000, 0);
         }
         if (regs[0xFF] == 0x02) {
             printf("Resetting to DFU mode\n");
@@ -306,11 +309,13 @@ int main() {
 
     uint8_t* regs = i2c_slave_if::init(handle_i2c_sprite_write, handle_i2c_reg_write);
     setup_i2c_reg_data(regs);
+    regs -= 0xC0;
 
-    make_rainbow(display.get_ram());
-    printf("Rainbow written...\n");
+    //make_rainbow(display.get_ram());
+    //printf("Rainbow written...\n");
 
-    // TODO, wait for I2C to indicate we should start
+    // Wait for I2C to indicate we should start
+    while (regs[0xF9] == 0) __wfe();
 
     // Deinit I2C before adjusting clock
     i2c_slave_if::deinit();

@@ -70,7 +70,7 @@ void DisplayDriver::run_core1() {
 }
 
 void DisplayDriver::init() {
-    ram.init();
+    //ram.init();
 
     gpio_init(PIN_HEARTBEAT);
     gpio_put(PIN_HEARTBEAT, 0);
@@ -150,6 +150,10 @@ void DisplayDriver::run() {
         }
 
         uint32_t vsync_start_time = time_us_32();
+
+        if (spi_mode) {
+            ram.set_qpi();
+        }
 
         if (!frame_data.read_headers()) {
             // TODO!
@@ -275,6 +279,10 @@ void DisplayDriver::main_loop() {
         }
         else {
             // We are done reading RAM, indicate RAM bank can be switched
+            if (spi_mode) {
+                ram.set_spi();
+            }
+
             gpio_put(PIN_VSYNC, 1);
         }
 

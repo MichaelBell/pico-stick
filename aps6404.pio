@@ -157,6 +157,19 @@ wr_lp:
   nop [7]           side 0b01
 .wrap
 
+.program sram_reset_qpi
+.side_set 2
+.wrap_target
+  out y, 32         side 0b01
+  pull              side 0b01
+  set pindirs, 0xF  side 0b01
+wr_lp:
+  out pins, 4       side 0b00
+  jmp y--, wr_lp    side 0b10
+  out null, 32  [7] side 0b01  ; Ensure large enough gap between commands for reset time
+  set pindirs, 0 [7] side 0b01
+.wrap
+
 
 % c-sdk {
 void aps6404_reset_program_init(PIO pio, uint sm, uint offset, uint csn, uint mosi) {
@@ -179,7 +192,7 @@ void aps6404_reset_program_init(PIO pio, uint sm, uint offset, uint csn, uint mo
     pio_sm_init(pio, sm, offset, &c);
     pio_sm_set_enabled(pio, sm, true);
 }
-void aps6404_program_init(PIO pio, uint sm, uint offset, uint csn, uint mosi, bool slow, bool fast) {
+void aps6404_program_init(PIO pio, uint sm, uint offset, uint csn, uint mosi, bool slow, bool fast, bool reset) {
     pio_gpio_init(pio, csn);
     pio_gpio_init(pio, csn + 1);
     pio_gpio_init(pio, mosi);
@@ -191,6 +204,7 @@ void aps6404_program_init(PIO pio, uint sm, uint offset, uint csn, uint mosi, bo
 
     pio_sm_config c = slow ? sram_slow_program_get_default_config(offset) : 
                       fast ? sram_fast_program_get_default_config(offset) : 
+                      reset ? sram_reset_qpi_program_get_default_config(offset) :
                       sram_program_get_default_config(offset);
     sm_config_set_in_pins(&c, mosi);
     sm_config_set_in_shift(&c, false, true, 32);
