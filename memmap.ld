@@ -24,8 +24,9 @@
 MEMORY
 {
     RAM(rwx) : ORIGIN =  0x20000000, LENGTH = 256k
-    SCRATCH_X(rwx) : ORIGIN = 0x20040000, LENGTH = 4k
-    SCRATCH_Y(rwx) : ORIGIN = 0x20041000, LENGTH = 4k
+    SCRATCH_X(rwx) : ORIGIN = 0x20040000, LENGTH = 8k
+    SCRATCH_Y(rwx) : ORIGIN = 0x15000000, LENGTH = 16k
+    USB_RAM(rwx) : ORIGIN = 0x50100000, LENGTH = 4k
     WD_SCRATCH(rw) : ORIGIN = 0x4005801c, LENGTH = 16
 }
 
@@ -165,6 +166,14 @@ SECTIONS
         __scratch_y_end__ = .;
     } > SCRATCH_Y
     __scratch_y_source__ = LOADADDR(.scratch_y);
+
+    .usb_ram : {
+        __usb_ram_start__ = .;
+        *(.usb_ram.*)
+        . = ALIGN(4);
+        __usb_ram_end__ = .;
+    } > USB_RAM
+    __usb_ram_source__ = LOADADDR(.usb_ram);
 
     .wd_data : {
         __wd_data_start__ = .;

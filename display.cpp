@@ -23,6 +23,24 @@ using namespace pico_stick;
 
 #define TEST_SPRITES 0
 
+static pico_stick::FrameTableEntry __attribute__((section(".usb_ram.frame_table"))) the_frame_table[MAX_FRAME_HEIGHT];
+
+DisplayDriver::DisplayDriver(PIO pio)
+    : frame_data(ram)
+    , current_res(RESOLUTION_640x480)
+    , ram(PIN_RAM_CS, PIN_RAM_D0)
+    , dvi0{
+        .timing{&dvi_timing_640x480p_60hz},
+        .ser_cfg{
+            .pio = pio,
+            .sm_tmds = {0, 1, 2},
+            .pins_tmds = {PIN_HDMI_D0, PIN_HDMI_D1, PIN_HDMI_D2},
+            .pins_clk = PIN_HDMI_CLK,
+            .invert_diffpairs = true}}
+{
+    frame_table = the_frame_table;
+}
+
 namespace {
     void core1_main() {
         DisplayDriver* driver = (DisplayDriver*)multicore_fifo_pop_blocking();

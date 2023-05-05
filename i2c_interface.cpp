@@ -42,7 +42,7 @@ namespace {
         uint8_t access_idx;
         bool got_register;
         bool data_written;
-    } context;
+    } context __attribute__((section(".usb_ram.i2c_context")));
 
     // Our handler is called from the I2C ISR, so it must complete quickly. Blocking calls /
     // printing to stdio may interfere with interrupt handling.
