@@ -2,7 +2,7 @@
 
 The DV Stick is a system with 2 RP2040s, one driving the digital video and the other running application code.
 
-This is the repo for driver for the "driver" side of the DV stick, which uses PicoDVI to drive the display.
+This is the repo for the "driver" side of the DV stick, which uses PicoDVI to drive the display.
 
 ## Getting it running
 
