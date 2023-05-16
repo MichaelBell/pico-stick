@@ -58,6 +58,8 @@ uint32_t colour_buf[1][FRAME_WIDTH / 2];
 void make_rainbow(APS6404& aps6404) {
     constexpr int stride = FRAME_WIDTH * 2;
 
+    aps6404.init();
+
     uint32_t addr = 0;
     {
         uint32_t* buf = colour_buf[0];
@@ -91,6 +93,7 @@ void make_rainbow(APS6404& aps6404) {
             aps6404.wait_for_finish_blocking();
             addr += max_j * 4;
         }
+        printf("Written header\n");
 
 #if 0
         // Sprite table
@@ -302,10 +305,11 @@ void setup_i2c_reg_data(uint8_t* regs) {
 
 int main() {
 	stdio_init_all();
+    i2c_slave_if::deinit();
 
     display.init();
     display.diags_callback = handle_display_diags_callback;
-    printf("APS Init\n");
+    printf("DV Display Driver Initialised\n");
 
     uint8_t* regs = i2c_slave_if::init(handle_i2c_sprite_write, handle_i2c_reg_write);
     setup_i2c_reg_data(regs);
@@ -316,6 +320,7 @@ int main() {
 
     // Wait for I2C to indicate we should start
     while (regs[0xF9] == 0) __wfe();
+    printf("DV Driver: Starting\n");
 
     // Deinit I2C before adjusting clock
     i2c_slave_if::deinit();
@@ -333,16 +338,16 @@ int main() {
     // Reinit I2C now clock is set.
     i2c_slave_if::init(handle_i2c_sprite_write, handle_i2c_reg_write);
 
-    printf("Starting\n");
+    printf("DV Driver: Clock configured\n");
 
     display.run();
 
     // If run ever exits, the magic number in the RAM was wrong.
-    // For now we reboot to DFU if that happens
-    printf("Display failed\n");
+    // For now we reboot if that happens
+    printf("DV Driver: Display failed\n");
 
-    printf("Resetting to DFU mode\n");
-    reset_usb_boot(0, 0);
+    printf("DV Driver: Resetting\n");
+    watchdog_reboot(0x20000001, 0x15004000, 0);
     
     while (true);
 }
