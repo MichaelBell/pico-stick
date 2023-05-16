@@ -80,6 +80,7 @@ add_custom_command(TARGET ${NAME} POST_BUILD
 # Set up files for the release packages
 install(FILES
     ${CMAKE_CURRENT_BINARY_DIR}/${NAME}.elf
+    ${CMAKE_CURRENT_BINARY_DIR}/${NAME}.h
     ${CMAKE_CURRENT_LIST_DIR}/README.md
     DESTINATION .
 )

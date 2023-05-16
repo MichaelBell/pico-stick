@@ -10,9 +10,9 @@ The driver RP2040 has no flash and is designed to be programmed over SWD either 
 
 ## Loading as from the application
 
-The build produces a `pico-stick.h` in the `build/` directory that should be copied to `drivers/dv_display` in the [dv_stick branch](https://github.com/MichaelBell/pimoroni-pico/tree/dv_stick) of the pimoroni-pico repo.
+The build produces a `pico-stick.h` in the `build/` directory that should be copied to `drivers/dv_display` in the [dv_stick branch](https://github.com/MichaelBell/pimoroni-pico/tree/dv_stick) of the pimoroni-pico repo.  This is also saved it the github action artifact.
 
-When the DVDisplay driver is initialized it will upload this image to the driver RP2040.
+When the DVDisplay driver is initialized it will upload the image from `pico-stick.h` to the driver RP2040.
 
 ## Loading over SWD for debugging
 
@@ -31,3 +31,9 @@ Alternatively, you should be able to grab the elf from the github build action a
     gdb-multiarch -ex "target remote localhost:3333" -ex "monitor reset init" -ex "load" -ex "continue" pico-stick.elf
 
 If you're using an application that normally loads the driver itself,don't forget to comment out `swd_load_program` in `dv_display.cpp`.
+
+## Credits
+
+This driver would not be possible without [PicoDVI](https://github.com/Wren6991/PicoDVI) by Luke Wren - this repo is just a wrapper around PicoDVI.  The version used here has several modifications to increase speed at the cost of using more RAM - which for this system is a better tradeoff as the application is running on a different processor.
+
+The [i2c slave library](https://github.com/vmilea/pico_i2c_slave/) is by Valentin Milea.
