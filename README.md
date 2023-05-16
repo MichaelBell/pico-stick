@@ -8,9 +8,17 @@ This is the repo for the "driver" side of the DV stick, which uses PicoDVI to dr
 
 The driver RP2040 has no flash and is designed to be programmed over SWD either from the debugging port, or direct from the application Pico.
 
-For now, you will need an SWD connection to the debugging port.  If you're on Windows the easiest way is with a RPi Debug Probe, or if you're using a Raspberry Pi you can wire it up to the SWD as normal.
+## Loading as from the application
 
-You'll need to use a customised version of the OpenOCD rp2040.cfg file, becuse there is no flash attached, and that is assumed by the default config.  Copy the file from `openocd/target/` in this repo to scripts/target in your OpenOCD install.
+The build produces a `pico-stick.h` in the `build/` directory that should be copied to `drivers/dv_display` in the [dv_stick branch](https://github.com/MichaelBell/pimoroni-pico/tree/dv_stick) of the pimoroni-pico repo.
+
+When the DVDisplay driver is initialized it will upload this image to the driver RP2040.
+
+## Loading over SWD for debugging
+
+You will need an SWD connection to the debugging port on the DV stick - this is connected to the driver RP2040.  If you're on Windows the easiest way is with a RPi Debug Probe, or if you're using a Raspberry Pi you can wire it up to the SWD as normal.
+
+You'll need to use a customised version of the OpenOCD rp2040.cfg file, because there is no flash attached, and that is assumed by the default config.  Copy the file from `openocd/target/` in this repo to scripts/target in your OpenOCD install.
 
 This is the command for launching OpenOCD on my laptop, you should be able to adapt accordingly:
 
@@ -21,3 +29,5 @@ Once you have OpenOCD running you should be able to load the project in VS code 
 Alternatively, you should be able to grab the elf from the github build action and program with a command along the lines of:
 
     gdb-multiarch -ex "target remote localhost:3333" -ex "monitor reset init" -ex "load" -ex "continue" pico-stick.elf
+
+If you're using an application that normally loads the driver itself,don't forget to comment out `swd_load_program` in `dv_display.cpp`.

@@ -72,6 +72,11 @@ target_link_libraries(${NAME}
 pico_enable_stdio_usb(${NAME} 0)
 pico_enable_stdio_uart(${NAME} 1)
 
+add_custom_command(TARGET ${NAME} POST_BUILD
+    COMMAND ${CMAKE_OBJDUMP} -s $<TARGET_FILE:${NAME}> >$<IF:$<BOOL:$<TARGET_PROPERTY:${NAME},OUTPUT_NAME>>,$<TARGET_PROPERTY:${NAME},OUTPUT_NAME>,$<TARGET_PROPERTY:${NAME},NAME>>.elf.txt
+    COMMAND python ${CMAKE_CURRENT_LIST_DIR}/convert_elf.py $<IF:$<BOOL:$<TARGET_PROPERTY:${NAME},OUTPUT_NAME>>,$<TARGET_PROPERTY:${NAME},OUTPUT_NAME>,$<TARGET_PROPERTY:${NAME},NAME>>.elf.txt >$<IF:$<BOOL:$<TARGET_PROPERTY:${NAME},OUTPUT_NAME>>,$<TARGET_PROPERTY:${NAME},OUTPUT_NAME>,$<TARGET_PROPERTY:${NAME},NAME>>.h
+)
+
 # Set up files for the release packages
 install(FILES
     ${CMAKE_CURRENT_BINARY_DIR}/${NAME}.elf
