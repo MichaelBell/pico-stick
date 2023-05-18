@@ -305,7 +305,12 @@ void setup_i2c_reg_data(uint8_t* regs) {
 
 int main() {
 	stdio_init_all();
-    i2c_slave_if::deinit();
+    
+    // Setup switches B and C
+    gpio_init(23);
+    gpio_init(24);
+    gpio_pull_up(23);
+    gpio_pull_up(24);
 
     display.init();
     display.diags_callback = handle_display_diags_callback;
