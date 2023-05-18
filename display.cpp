@@ -30,7 +30,11 @@ DisplayDriver::DisplayDriver(PIO pio)
     , current_res(RESOLUTION_720x480)
     , ram(PIN_RAM_CS, PIN_RAM_D0)
     , dvi0{
+#if SUPPORT_WIDE_MODES
+        .timing{&dvi_timing_1280x720p_30hz},
+#else
         .timing{&dvi_timing_720x480p_60hz},
+#endif
         .ser_cfg{
             .pio = pio,
             .sm_tmds = {0, 1, 2},
