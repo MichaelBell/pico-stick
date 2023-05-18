@@ -28,6 +28,10 @@ public:
 
     DisplayDriver(PIO pio = pio1);
 
+    // May only be called before init
+    bool set_res(pico_stick::Resolution res);
+    pico_stick::Resolution get_res() const { return current_res; }
+
     void init();
 
     // Runs the display.  This never returns and also starts processing on core1.
@@ -63,9 +67,9 @@ public:
         uint32_t vsync_time = 0;
         uint32_t peak_scanline_time = 0;
         uint32_t total_late_scanlines = 0;
-        uint32_t available_total_scanline_time;
-        uint32_t available_time_per_scanline;
-        uint32_t available_vsync_time;
+        uint32_t available_total_scanline_time = 0;
+        uint32_t available_time_per_scanline = 0;
+        uint32_t available_vsync_time = 0;
     };
     const Diags& get_diags() const { return diags; }
     void clear_peak_scanline_time() { diags.peak_scanline_time = 0; }

@@ -217,6 +217,8 @@ static uint8_t get_vreg_select_for_voltage(uint8_t voltage_50mv) {
     return voltage_50mv - (1000 / 50) + VREG_VOLTAGE_1_00;
 }
 
+void setup_i2c_reg_data(uint8_t* regs);
+
 void handle_i2c_reg_write(uint8_t reg, uint8_t end_reg, uint8_t* regs) {
     // Subtract 0xC0 from regs so that register numbers match addresses
     regs -= 0xC0;
@@ -231,12 +233,19 @@ void handle_i2c_reg_write(uint8_t reg, uint8_t end_reg, uint8_t* regs) {
         display.clear_late_scanlines();
     }
 
-    if (REG_WRITTEN2(0xF3, 0xF0)) {
+    if (REG_WRITTEN2(0xF0, 0xF3)) {
         int offset = (regs[0xF3] << 24) |
                      (regs[0xF2] << 16) |
                      (regs[0xF1] << 8) |
                      (regs[0xF0] & 0xFC);
         display.set_frame_data_address_offset(offset);
+    }
+    if (REG_WRITTEN(0xF8)) {
+        if (regs[0xF9] == 0) { // If not started, can change mode
+            display.set_res((pico_stick::Resolution)regs[0xF8]);
+            setup_i2c_reg_data(regs + 0xC0);
+        }
+        regs[0xF8] = display.get_res();
     }
     if (REG_WRITTEN(0xFA)) {
         display.set_spi_mode(regs[0xFA] != 0);
@@ -301,6 +310,8 @@ void setup_i2c_reg_data(uint8_t* regs) {
     regs[0xDC] = clock_10khz & 0xFF;
     regs[0xDD] = clock_10khz >> 8;
     regs[0xDE] = get_default_voltage_for_clock(display.get_clock_khz());
+    
+    regs[0xF8] = display.get_res();
 }
 
 int main() {
@@ -312,20 +323,19 @@ int main() {
     gpio_pull_up(23);
     gpio_pull_up(24);
 
-    display.init();
-    display.diags_callback = handle_display_diags_callback;
-    printf("DV Display Driver Initialised\n");
-
     uint8_t* regs = i2c_slave_if::init(handle_i2c_sprite_write, handle_i2c_reg_write);
     setup_i2c_reg_data(regs);
     regs -= 0xC0;
+    printf("DV Display Driver I2C Initialised\n");
 
     //make_rainbow(display.get_ram());
     //printf("Rainbow written...\n");
 
     // Wait for I2C to indicate we should start
     while (regs[0xF9] == 0) __wfe();
-    printf("DV Driver: Starting\n");
+    display.init();
+    display.diags_callback = handle_display_diags_callback;
+    printf("DV Display Driver Initialised\n");
 
     // Deinit I2C before adjusting clock
     i2c_slave_if::deinit();

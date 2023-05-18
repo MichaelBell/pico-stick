@@ -4,12 +4,18 @@
 
 namespace pico_stick {
     enum Resolution : uint8_t {
-        RESOLUTION_OFF = 0,
-        RESOLUTION_640x480 = 1,
-        RESOLUTION_720x480 = 2,
+        RESOLUTION_640x480 = 0,
+        RESOLUTION_720x480 = 1,
+        RESOLUTION_720x400 = 2,
         RESOLUTION_720x576 = 3,
-        RESOLUTION_800x480 = 4,
-        RESOLUTION_800x600 = 5,
+
+        // These modes require the wide mode build
+        RESOLUTION_800x600 = 0x10,
+        RESOLUTION_800x480 = 0x11,
+        RESOLUTION_800x450 = 0x12,
+        RESOLUTION_960x540 = 0x13,
+        RESOLUTION_960x540_50 = 0x14,
+        RESOLUTION_1280x720 = 0x15,
     };
 
     enum LineMode : uint8_t {

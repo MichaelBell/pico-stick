@@ -30,11 +30,7 @@ DisplayDriver::DisplayDriver(PIO pio)
     , current_res(RESOLUTION_720x480)
     , ram(PIN_RAM_CS, PIN_RAM_D0)
     , dvi0{
-#if SUPPORT_WIDE_MODES
-        .timing{&dvi_timing_1280x720p_30hz},
-#else
         .timing{&dvi_timing_720x480p_60hz},
-#endif
         .ser_cfg{
             .pio = pio,
             .sm_tmds = {0, 1, 2},
@@ -43,6 +39,41 @@ DisplayDriver::DisplayDriver(PIO pio)
             .invert_diffpairs = true}}
 {
     frame_table = the_frame_table;
+}
+
+bool DisplayDriver::set_res(pico_stick::Resolution res)
+{
+    const dvi_timing* normal_modes[] = {
+        &dvi_timing_640x480p_60hz,
+        &dvi_timing_720x480p_60hz,
+        &dvi_timing_720x400p_70hz,
+        &dvi_timing_720x576p_50hz,
+    };
+
+    if (res <= RESOLUTION_720x576) {
+        dvi0.timing = normal_modes[(int)res];
+        current_res = res;
+        return true;
+    }
+
+#if SUPPORT_WIDE_MODES
+    const dvi_timing* wide_modes[] = {
+        &dvi_timing_800x600p_60hz,
+        &dvi_timing_800x480p_60hz,
+        &dvi_timing_800x450p_60hz,
+        &dvi_timing_960x540p_60hz,
+        &dvi_timing_960x540p_50hz,
+        &dvi_timing_1280x720p_30hz,
+    };
+
+    if (res >= RESOLUTION_800x600 && res <= RESOLUTION_1280x720) {
+        dvi0.timing = wide_modes[(int)res - (int)RESOLUTION_800x600];
+        current_res = res;
+        return true;
+    }
+#endif
+
+    return false;
 }
 
 namespace {
