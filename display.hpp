@@ -85,8 +85,8 @@ private:
     friend class Sprite;
 
     void main_loop();
-    void prepare_scanline_core0(int line_number, uint32_t *pixel_data, uint32_t *tmds_buf);
-    void prepare_scanline_core1(int line_number, uint32_t *pixel_data, uint32_t *tmds_buf);
+    void prepare_scanline_core0(int line_number, uint32_t *pixel_data, uint32_t *tmds_buf, bool double_pixels);
+    void prepare_scanline_core1(int line_number, uint32_t *pixel_data, uint32_t *tmds_buf, bool double_pixels);
     void read_two_lines(uint idx);
     void clear_patches();
     void update_sprites();
@@ -117,6 +117,7 @@ private:
     // Must be long enough to accept two lines at maximum data length and maximum width
     uint32_t pixel_data[NUM_LINE_BUFFERS / 2][(MAX_FRAME_WIDTH * 3) / 2];
     uint32_t line_lengths[NUM_LINE_BUFFERS];
+    bool h_double[NUM_LINE_BUFFERS];
 
     Sprite sprites[MAX_SPRITES];
 

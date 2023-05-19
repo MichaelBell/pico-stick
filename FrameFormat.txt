@@ -9,9 +9,9 @@ DVI setup:
     Vertical repeat                                - number of times to repeat each scanline vertically (currently assumed to be 1)
     Output Enable: (On, Off)                       - if off then DVI timing but display is black.
   2 bytes: Horizontal offset (e.g. 0)              - To allow part of the screen to be used, can specify an offset.  This is in pixels (the configured repeat is not taken into account), must be a multiple of 2.
-  2 bytes: Horizontal length (e.g. 640)            - Width of the part of the screen to fill.  This is in pixels (the configured repeat is not taken into account), must be a multiple of 2.
-  2 bytes: Vertical offset   (e.g. 0)              - To allow part of the screen to be used, can specify an offset.  This is in scanlines (the configured repeat is not taken into account).
-  2 bytes: Vertical length   (e.g. 480)            - Height of the part of the screen to fill.  This is in scanlines (the configured repeat is not taken into account), must be a multiple of the vertical repeat.
+  2 bytes: Horizontal length (e.g. 640)            - Width of the part of the screen to fill.  This is in pixels (the configured repeat is not taken into account, because it can be configured per line), must be a multiple of 2.
+  2 bytes: Vertical offset   (e.g. 0)              - To allow part of the screen to be used, can specify an offset.  This is in repeated lines (the configured repeat *is* taken into account).
+  2 bytes: Vertical length   (e.g. 480)            - Height of the part of the screen to fill.  This is in repeated lines (the configured repeat *is* taken into account).
   
 Frame table header:
   2 bytes: Number of frames                        - Number of frame descriptions that follow.  Display will wrap through these frames allowing animations or transitions without flipping the RAMs

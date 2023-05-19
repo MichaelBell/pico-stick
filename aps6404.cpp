@@ -193,7 +193,7 @@ namespace pimoroni {
     }
 
     uint32_t* APS6404::add_read_to_cmd_buffer(uint32_t* cmd_buf, uint32_t addr, uint32_t len_in_words) {
-        uint32_t len = (PAGE_SIZE - (addr & (PAGE_SIZE - 1))) >> 2;
+        uint32_t len = std::min((PAGE_SIZE - (addr & (PAGE_SIZE - 1))) >> 2, len_in_words);
 
         while (true) {
             *cmd_buf++ = (len * 8) - 4;

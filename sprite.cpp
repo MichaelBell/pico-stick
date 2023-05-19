@@ -27,9 +27,12 @@ void Sprite::setup_patches(DisplayDriver& disp) {
         int start = x + line.offset;
         int end = start + line.width;
         int start_offset = 0;
+        int line_len = disp.frame_data.config.h_length;
+        if (disp.frame_table[line_idx].h_repeat() == 2) line_len >>= 1;
+
         if (end <= 0) continue;
-        if (start >= disp.frame_data.config.h_length) continue;
-        if (end > disp.frame_data.config.h_length) end = disp.frame_data.config.h_length;
+        if (start >= line_len) continue;
+        if (end > line_len) end = line_len;
         
         const int pixel_size = get_pixel_data_len(header.sprite_mode());
         start *= pixel_size;

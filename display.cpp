@@ -13,6 +13,7 @@ extern "C" {
 #include "common_dvi_pin_configs.h"
 
 #include "tmds_double_encode.h"
+#include "tmds_encode.h"
 }
 
 using namespace pico_stick;
@@ -90,12 +91,14 @@ void DisplayDriver::run_core1() {
         printf("Core 1 up\n");
         dvi_start(&dvi0);
         while (true) {
-            const uint32_t line_counter = multicore_fifo_pop_blocking();
+            uint32_t line_counter = multicore_fifo_pop_blocking();
+            const bool double_pixel = line_counter & 0x80000000u;
+            line_counter &= ~0x80000000u;
             uint32_t *colourbuf = (uint32_t*)multicore_fifo_pop_blocking();
             if (!colourbuf) break;
 
             uint32_t *tmdsbuf = (uint32_t*)multicore_fifo_pop_blocking();
-            prepare_scanline_core1(line_counter, colourbuf, tmdsbuf);
+            prepare_scanline_core1(line_counter, colourbuf, tmdsbuf, double_pixel);
             multicore_fifo_push_blocking(0);
         }
 
@@ -201,8 +204,7 @@ void DisplayDriver::run() {
         if (frame_data.config.v_repeat != dvi0.vertical_repeat) {
             printf("Changing v repeat to %d\n", frame_data.config.v_repeat);
             // Wait until it is safe to change the vertical repeat
-            while (dvi0.timing_state.v_state == DVI_STATE_ACTIVE && 
-                dvi0.timing_state.v_ctr < dvi0.timing->v_active_lines - 2)
+            while (dvi0.timing_state.v_state == DVI_STATE_ACTIVE)
                 __compiler_memory_barrier();
             dvi0.vertical_repeat = frame_data.config.v_repeat;
         }
@@ -324,22 +326,27 @@ void DisplayDriver::main_loop() {
         // Flip the buffer index to the one read last time, which is now ready to output
         pixel_data_read_idx ^= 1;
 
-        uint32_t *core0_tmds_buf, *core1_tmds_buf;
+        uint32_t *core0_tmds_buf = nullptr, *core1_tmds_buf;
         queue_remove_blocking_u32(&dvi0.q_tmds_free, &core1_tmds_buf);
-        sio_hw->fifo_wr = line_counter - 2;
+        if (h_double[pixel_data_read_idx * 2]) sio_hw->fifo_wr = (line_counter - 2) | 0x80000000;
+        else sio_hw->fifo_wr = (line_counter - 2);
         sio_hw->fifo_wr = uint32_t(pixel_data[pixel_data_read_idx]);
         sio_hw->fifo_wr = uint32_t(core1_tmds_buf);
         __sev();
 
-        const uint32_t core1_line_length = line_lengths[pixel_data_read_idx * 2];
-        uint32_t* core0_colour_buf = &pixel_data[pixel_data_read_idx][core1_line_length];
+        if (line_counter < frame_data.config.v_length + 1) {
+            const uint32_t core1_line_length = line_lengths[pixel_data_read_idx * 2];
+            uint32_t* core0_colour_buf = &pixel_data[pixel_data_read_idx][core1_line_length];
 
-        queue_remove_blocking_u32(&dvi0.q_tmds_free, &core0_tmds_buf);
-        prepare_scanline_core0(line_counter - 1, core0_colour_buf, core0_tmds_buf);
+            queue_remove_blocking_u32(&dvi0.q_tmds_free, &core0_tmds_buf);
+            prepare_scanline_core0(line_counter - 1, core0_colour_buf, core0_tmds_buf, h_double[pixel_data_read_idx * 2 + 1]);
+        }    
 
         multicore_fifo_pop_blocking();
         queue_add_blocking_u32(&dvi0.q_tmds_valid, &core1_tmds_buf);
-        queue_add_blocking_u32(&dvi0.q_tmds_valid, &core0_tmds_buf);
+        if (line_counter < frame_data.config.v_length + 1) {
+            queue_add_blocking_u32(&dvi0.q_tmds_valid, &core0_tmds_buf);
+        }
 
         line_counter += 2;
     }
@@ -363,7 +370,7 @@ void DisplayDriver::clear_late_scanlines() {
     dvi0.total_late_scanlines = 0;
 }
 
-void DisplayDriver::prepare_scanline_core0(int line_number, uint32_t* pixel_data, uint32_t* tmds_buf) {
+void DisplayDriver::prepare_scanline_core0(int line_number, uint32_t* pixel_data, uint32_t* tmds_buf, bool double_pixels) {
     uint32_t start = time_us_32();
 
     int i;
@@ -376,7 +383,8 @@ void DisplayDriver::prepare_scanline_core0(int line_number, uint32_t* pixel_data
             break;
         }
     }
-    tmds_encode_fullres_15bpp(pixel_data, tmds_15bpp_lut, tmds_buf, frame_data.config.h_length);
+    if (double_pixels) tmds_encode_15bpp(pixel_data, tmds_buf, frame_data.config.h_length >> 1);
+    else tmds_encode_fullres_15bpp(pixel_data, tmds_15bpp_lut, tmds_buf, frame_data.config.h_length);
 
     const uint32_t scanline_time = time_us_32() - start;
     diags.scanline_max_prep_time[0] = std::max(scanline_time, diags.scanline_max_prep_time[0]);
@@ -384,7 +392,7 @@ void DisplayDriver::prepare_scanline_core0(int line_number, uint32_t* pixel_data
     diags.scanline_total_prep_time[0] += scanline_time;
 }    
 
-void DisplayDriver::prepare_scanline_core1(int line_number, uint32_t* pixel_data, uint32_t* tmds_buf) {
+void DisplayDriver::prepare_scanline_core1(int line_number, uint32_t* pixel_data, uint32_t* tmds_buf, bool double_pixels) {
     uint32_t start = time_us_32();
 
     int i;
@@ -397,7 +405,8 @@ void DisplayDriver::prepare_scanline_core1(int line_number, uint32_t* pixel_data
             break;
         }
     }
-    tmds_encode_fullres_15bpp(pixel_data, tmds_15bpp_lut, tmds_buf, frame_data.config.h_length);
+    if (double_pixels) tmds_encode_15bpp(pixel_data, tmds_buf, frame_data.config.h_length >> 1);
+    else tmds_encode_fullres_15bpp(pixel_data, tmds_15bpp_lut, tmds_buf, frame_data.config.h_length);
 
     const uint32_t scanline_time = time_us_32() - start;
     diags.scanline_max_prep_time[1] = std::max(scanline_time, diags.scanline_max_prep_time[1]);
@@ -411,8 +420,11 @@ void DisplayDriver::read_two_lines(uint idx) {
     for (int i = 0; i < 2; ++i) {
         FrameTableEntry& entry = frame_table[line_counter + i];
         addresses[i] = get_line_address(line_counter + i);
+        const bool double_pixels = (entry.h_repeat() == 2);
         const uint32_t line_length = frame_data.config.h_length * get_pixel_data_len(entry.line_mode());
-        line_lengths[idx * 2 + i] = line_length >> 2;
+        if (double_pixels) line_lengths[idx * 2 + i] = line_length >> 3;
+        else line_lengths[idx * 2 + i] = line_length >> 2;
+        h_double[idx * 2 + i] = double_pixels;
     }
 
     ram.multi_read(addresses, &line_lengths[idx * 2], 2, pixel_data[idx]);
