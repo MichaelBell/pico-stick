@@ -5,6 +5,7 @@
 #include "pico/stdlib.h"
 
 #include "constants.hpp"
+#include "edid.hpp"
 
 namespace {
     constexpr uint I2C_SLAVE_ADDRESS = 0x0d;
@@ -19,6 +20,7 @@ namespace {
 
     constexpr uint I2C_HIGH_REG_BASE = 0xC0;
     constexpr uint I2C_NUM_HIGH_REGS = 0x40;
+    constexpr uint I2C_EDID_REGISTER = 0xED;
 
     // Callback made after an I2C write to high registers is complete.  It gives the first register written,
     // The last register written, and a pointer to the memory representing all high registers (from 0xC0).
@@ -81,6 +83,9 @@ namespace {
                     cxt->access_idx = 0;
                     ++cxt->cur_register;
                 }
+            } else if (cxt->cur_register == I2C_EDID_REGISTER) {
+                i2c_write_byte(i2c, get_edid_data()[cxt->access_idx]);
+                if (++cxt->access_idx == 128) cxt->access_idx = 0;
             } else if (cxt->cur_register >= I2C_HIGH_REG_BASE && cxt->cur_register < I2C_HIGH_REG_BASE + I2C_NUM_HIGH_REGS) {
                 i2c_write_byte(i2c, cxt->high_regs[cxt->cur_register - I2C_HIGH_REG_BASE]);
                 ++cxt->cur_register;
