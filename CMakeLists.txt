@@ -35,6 +35,7 @@ add_executable(${NAME}
     frame_decode.cpp
     sprite.cpp
     i2c_interface.cpp
+    edid.cpp
 )
 
 add_executable(${NAME_WIDE}
@@ -44,6 +45,7 @@ add_executable(${NAME_WIDE}
     frame_decode.cpp
     sprite.cpp
     i2c_interface.cpp
+    edid.cpp
 )
 
 target_compile_definitions(${NAME} PRIVATE

@@ -13,6 +13,7 @@
 #include "i2c_interface.hpp"
 #include "display.hpp"
 #include "aps6404.hpp"
+#include "edid.hpp"
 
 #include "constants.hpp"
 
@@ -327,6 +328,8 @@ int main() {
     setup_i2c_reg_data(regs);
     regs -= 0xC0;
     printf("DV Display Driver I2C Initialised\n");
+
+    read_edid();
 
     //make_rainbow(display.get_ram());
     //printf("Rainbow written...\n");
