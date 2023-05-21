@@ -3,17 +3,16 @@
 #include "hardware/i2c.h"
 #include "hardware/gpio.h"
 
-#define HDMI_I2C_SDA 4
-#define HDMI_I2C_SCL 5
+#include "pins.hpp"
 
 static uint8_t __attribute__((section(".usb_ram.frame_table"))) edid_data[128];
 
 uint8_t* read_edid() {
     i2c_init(i2c0, 100 * 1000);
-    gpio_set_function(HDMI_I2C_SDA, GPIO_FUNC_I2C);
-    gpio_set_function(HDMI_I2C_SCL, GPIO_FUNC_I2C);
-    gpio_pull_up(HDMI_I2C_SDA);
-    gpio_pull_up(HDMI_I2C_SCL);
+    gpio_set_function(PIN_HDMI_I2C_SDA, GPIO_FUNC_I2C);
+    gpio_set_function(PIN_HDMI_I2C_SCL, GPIO_FUNC_I2C);
+    gpio_pull_up(PIN_HDMI_I2C_SDA);
+    gpio_pull_up(PIN_HDMI_I2C_SCL);
 
     printf("Read EDID\n");
     int ret = i2c_read_blocking(i2c0, 0x50, edid_data, 1, false);

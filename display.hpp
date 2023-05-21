@@ -16,16 +16,6 @@ extern "C"
 class DisplayDriver
 {
 public:
-    static constexpr int PIN_RAM_CS = 17;
-    static constexpr int PIN_RAM_D0 = 19;
-    static constexpr int PIN_VSYNC = 16;
-    static constexpr int PIN_HEARTBEAT = 25;
-
-    static constexpr int PIN_HDMI_CLK = 6;
-    static constexpr int PIN_HDMI_D0 = 8;
-    static constexpr int PIN_HDMI_D1 = 10;
-    static constexpr int PIN_HDMI_D2 = 12;
-
     DisplayDriver(PIO pio = pio1);
 
     // May only be called before init
@@ -81,6 +71,8 @@ public:
     // Defaults to QPI.  If use_spi true then RAM set back to SPI mode for VSYNC.
     void set_spi_mode(bool use_spi) { spi_mode = use_spi; }
 
+    void enable_heartbeat(bool enable) { heartbet_led = enable; }
+
 private:
     friend class Sprite;
 
@@ -132,4 +124,7 @@ private:
 
     // Whether the RAM should be in SPI mode for the app processor
     bool spi_mode = false;
+
+    // Whether to output heartbeat LED
+    bool heartbet_led = true;
 };

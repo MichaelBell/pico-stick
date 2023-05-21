@@ -5,8 +5,10 @@
 #include "display.hpp"
 #include "hardware/sync.h"
 #include "hardware/structs/bus_ctrl.h"
-#include "hardware/vreg.h"
+#include "hardware/pwm.h"
 #include "pico/multicore.h"
+
+#include "pins.hpp"
 
 extern "C" {
 #include "dvi_serialiser.h"
@@ -110,10 +112,6 @@ void DisplayDriver::run_core1() {
 void DisplayDriver::init() {
     //ram.init();
 
-    gpio_init(PIN_HEARTBEAT);
-    gpio_put(PIN_HEARTBEAT, 0);
-    gpio_set_dir(PIN_HEARTBEAT, GPIO_OUT);
-
     gpio_init(PIN_VSYNC);
     gpio_put(PIN_VSYNC, 0);
     gpio_set_dir(PIN_VSYNC, GPIO_OUT);
@@ -182,9 +180,13 @@ void DisplayDriver::run() {
     uint heartbeat = 9;
     //int frame_address_dir = 4;
     while (true) {
-        if (++heartbeat >= 32) {
-            heartbeat = 0;
-            gpio_xor_mask(1u << PIN_HEARTBEAT);
+        if (heartbet_led) {
+            uint val;
+            if (heartbeat < 32) val = heartbeat << 3;
+            else if (heartbeat == 32) val = 255;
+            else val = (64 - heartbeat) << 3;
+            if (++heartbeat == 64) heartbeat = 0;
+            pwm_set_gpio_level(PIN_LED, val * val);
         }
 
         uint32_t vsync_start_time = time_us_32();

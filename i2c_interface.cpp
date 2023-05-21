@@ -5,14 +5,13 @@
 #include "pico/stdlib.h"
 
 #include "constants.hpp"
+#include "pins.hpp"
 #include "edid.hpp"
 
 namespace {
     constexpr uint I2C_SLAVE_ADDRESS = 0x0d;
     constexpr uint I2C_BAUDRATE = 400000;
 
-    constexpr uint I2C_SLAVE_SDA_PIN = 14;
-    constexpr uint I2C_SLAVE_SCL_PIN = 15;
     constexpr i2c_inst_t* I2C_INSTANCE = i2c1;
 
     constexpr uint I2C_SPRITE_REG_BASE = 0;
