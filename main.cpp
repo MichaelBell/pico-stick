@@ -10,6 +10,7 @@
 #include "hardware/pwm.h"
 #include "hardware/watchdog.h"
 #include "pico/bootrom.h"
+#include "hardware/structs/pads_qspi.h"
 
 #include "i2c_interface.hpp"
 #include "display.hpp"
@@ -64,6 +65,22 @@ void handle_i2c_reg_write(uint8_t reg, uint8_t end_reg, uint8_t* regs) {
         else if (regs[0xC1] >= 128) {
             uint val = (regs[0xC1] - 128) << 1;
             pwm_set_gpio_level(PIN_LED, val * val);
+        }
+    }
+
+    if (REG_WRITTEN(0xC9)) {
+        sio_hw->gpio_hi_out = regs[0xC9] & 0x3F;
+    }
+    if (REG_WRITTEN(0xCA)) {
+        sio_hw->gpio_hi_oe = regs[0xCA] & 0x3F;
+    }
+    if (REG_WRITTEN2(0xCB, 0xCC)) {
+        constexpr uint8_t gpio_to_pad_map[] = { 0, 2, 3, 4, 5, 1 };
+        for (uint i = 0; i < NUM_QSPI_GPIOS; ++i) {
+            uint32_t val = 0x62;
+            if (regs[0xCB] & (1 << gpio_to_pad_map[i])) val |= 8;
+            if (regs[0xCC] & (1 << gpio_to_pad_map[i])) val |= 4;
+            pads_qspi_hw->io[i] = val;
         }
     }
 
@@ -163,6 +180,22 @@ int main() {
     gpio_init(PIN_SW_C);
     gpio_pull_up(PIN_SW_B);
     gpio_pull_up(PIN_SW_C);
+    
+    // Set up I2S (not used yet, but make sure we don't interfere)
+    gpio_init(PIN_I2S_DATA);
+    gpio_init(PIN_I2S_BCLK);
+    gpio_init(PIN_I2S_LRCLK);
+    gpio_disable_pulls(PIN_I2S_DATA);
+    gpio_disable_pulls(PIN_I2S_BCLK);
+    gpio_disable_pulls(PIN_I2S_LRCLK);
+
+    // Set up GPIO
+    gpio_init(PIN_ADC);
+    gpio_disable_pulls(PIN_ADC);
+    sio_hw->gpio_hi_oe = 0;
+    for (uint i = 0; i < NUM_QSPI_GPIOS; ++i) {
+        pads_qspi_hw->io[i] = 0x62;
+    }
 
     // Setup heartbeat LED
     gpio_set_function(PIN_LED, GPIO_FUNC_PWM);
