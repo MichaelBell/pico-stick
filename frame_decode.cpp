@@ -33,10 +33,10 @@ void FrameDecode::get_frame_table(int frame_counter, FrameTableEntry* frame_tabl
     ram.read_blocking(address, (uint32_t*)frame_table, frame_table_header.frame_table_length);
 }
 
-void FrameDecode::get_palette(int idx, int frame_counter, uint8_t palette[256 * 3]) {
-    uint32_t address = get_palette_table_address() + (idx + frame_table_header.num_palettes * (frame_table_header.palette_advance ? frame_counter : 0)) * 256 * 3;
+void FrameDecode::get_palette(int idx, int frame_counter, uint8_t palette[PALETTE_SIZE * 3]) {
+    uint32_t address = get_palette_table_address() + (idx + frame_table_header.num_palettes * (frame_table_header.palette_advance ? frame_counter : 0)) * PALETTE_SIZE * 3;
 
-    ram.read(address, (uint32_t*)palette, (256 * 3) / 4);
+    ram.read(address, (uint32_t*)palette, (PALETTE_SIZE * 3) / 4);
 }
 
 void FrameDecode::get_sprite_header(int idx, pico_stick::SpriteHeader* sprite_header) {
@@ -79,5 +79,5 @@ uint32_t FrameDecode::get_palette_table_address() {
 }
 
 uint32_t FrameDecode::get_sprite_table_address() {
-    return get_palette_table_address() + frame_table_header.num_palettes * (frame_table_header.palette_advance ? frame_table_header.num_frames : 1) * 256 * 3;
+    return get_palette_table_address() + frame_table_header.num_palettes * (frame_table_header.palette_advance ? frame_table_header.num_frames : 1) * PALETTE_SIZE * 3;
 }

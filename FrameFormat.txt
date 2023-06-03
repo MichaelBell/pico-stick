@@ -33,7 +33,7 @@ Frame tables:
 
 Palette tables:
   Number of palettes per frame, multiplied by number of frames if palette advance is true:
-    256 times:
+    32 times:
       1 byte: Red
       1 byte: Blue
       1 byte: Green

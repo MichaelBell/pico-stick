@@ -1,6 +1,7 @@
 #pragma once
 
 #include "pico_stick_frame.hpp"
+#include "constants.hpp"
 #include "aps6404.hpp"
 
 class FrameDecode {
@@ -18,7 +19,7 @@ class FrameDecode {
         void get_frame_table(int frame_counter, pico_stick::FrameTableEntry* frame_table);
 
         // Fill a palette
-        void get_palette(int idx, int frame_counter, uint8_t palette[256 * 3]);
+        void get_palette(int idx, int frame_counter, uint8_t palette[PALETTE_SIZE * 3]);
 
         // Get a sprite header
         void get_sprite_header(int idx, pico_stick::SpriteHeader* sprite_header);

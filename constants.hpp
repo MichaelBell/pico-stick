@@ -4,6 +4,8 @@
 #define SUPPORT_WIDE_MODES 0
 #endif
 
+constexpr int PALETTE_SIZE = 32;
+
 #if !SUPPORT_WIDE_MODES
 // Support for normal modes, require <300MHz overclock, 
 // work on pretty much any screen, up to 32 sprites.

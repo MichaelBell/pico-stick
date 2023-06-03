@@ -76,10 +76,17 @@ public:
 private:
     friend class Sprite;
 
+    enum ScanlineMode {
+        DOUBLE_PIXELS = 1,
+        PALETTE = 2,
+        RGB888 = 4,
+    };
+
     void main_loop();
-    void prepare_scanline_core0(int line_number, uint32_t *pixel_data, uint32_t *tmds_buf, bool double_pixels);
-    void prepare_scanline_core1(int line_number, uint32_t *pixel_data, uint32_t *tmds_buf, bool double_pixels);
+    void prepare_scanline_core0(int line_number, uint32_t *pixel_data, uint32_t *tmds_buf, int scanline_mode);
+    void prepare_scanline_core1(int line_number, uint32_t *pixel_data, uint32_t *tmds_buf, int scanline_mode);
     void read_two_lines(uint idx);
+    void setup_palette();
     void clear_patches();
     void update_sprites();
     uint32_t get_line_address(int line_number)
@@ -109,13 +116,13 @@ private:
     // Must be long enough to accept two lines at maximum data length and maximum width
     uint32_t pixel_data[NUM_LINE_BUFFERS / 2][(MAX_FRAME_WIDTH * 3) / 2];
     uint32_t line_lengths[NUM_LINE_BUFFERS];
-    bool h_double[NUM_LINE_BUFFERS];
+    int8_t line_mode[NUM_LINE_BUFFERS];
 
     Sprite sprites[MAX_SPRITES];
 
-    // Not using this yet but keeping it here to remind us of the memory usage!
-    uint32_t tmds_palette_luts[32 * 32 * 12];
-    uint32_t* tmds_15bpp_lut = &tmds_palette_luts[32 * 32 * 2];
+    // Palette TMDS symbol look up tables
+    uint32_t tmds_palette_luts[PALETTE_SIZE * PALETTE_SIZE * 12];
+    uint32_t* tmds_15bpp_lut = &tmds_palette_luts[PALETTE_SIZE * PALETTE_SIZE * 2];
 
     // TMDS buffers.  Better to have them here than rely on dynamic allocation
     uint32_t tmds_buffers[NUM_TMDS_BUFFERS * 3 * MAX_FRAME_WIDTH / DVI_SYMBOLS_PER_WORD];
