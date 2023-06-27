@@ -391,6 +391,7 @@ void DisplayDriver::prepare_scanline_core0(int line_number, uint32_t* pixel_data
     }
     if (scanline_mode & DOUBLE_PIXELS) {
         if (scanline_mode & RGB888) tmds_encode_24bpp(pixel_data, tmds_buf, frame_data.config.h_length >> 1);
+        else if (scanline_mode & PALETTE) tmds_encode_palette_data(pixel_data, tmds_doubled_palette_lut, tmds_buf, frame_data.config.h_length >> 1, 2, 5);
         else tmds_encode_15bpp(pixel_data, tmds_buf, frame_data.config.h_length >> 1);
     }
     else if (scanline_mode & PALETTE) tmds_encode_fullres_palette(pixel_data, tmds_palette_luts, tmds_buf, frame_data.config.h_length);
@@ -417,6 +418,7 @@ void DisplayDriver::prepare_scanline_core1(int line_number, uint32_t* pixel_data
     }
     if (scanline_mode & DOUBLE_PIXELS) {
         if (scanline_mode & RGB888) tmds_encode_24bpp(pixel_data, tmds_buf, frame_data.config.h_length >> 1);
+        else if (scanline_mode & PALETTE) tmds_encode_palette_data(pixel_data, tmds_doubled_palette_lut, tmds_buf, frame_data.config.h_length >> 1, 2, 5);
         else tmds_encode_15bpp(pixel_data, tmds_buf, frame_data.config.h_length >> 1);
     }
     else if (scanline_mode & PALETTE) tmds_encode_fullres_palette(pixel_data, tmds_palette_luts, tmds_buf, frame_data.config.h_length);
@@ -458,6 +460,7 @@ void DisplayDriver::setup_palette() {
     tmds_double_encode_setup_lut(palette, tmds_palette_luts, 3);
     tmds_double_encode_setup_lut(palette + 1, tmds_palette_luts + (PALETTE_SIZE * PALETTE_SIZE * 4), 3);
     tmds_double_encode_setup_lut(palette + 2, tmds_palette_luts + (PALETTE_SIZE * PALETTE_SIZE * 8), 3);
+    tmds_setup_palette_symbols(palette, tmds_doubled_palette_lut, PALETTE_SIZE);
 }
 
 void DisplayDriver::update_sprites() {
