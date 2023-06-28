@@ -456,6 +456,7 @@ void DisplayDriver::setup_palette() {
 
     uint8_t palette[PALETTE_SIZE * 3];
     frame_data.get_palette(0, frame_counter, palette);
+    ram.wait_for_finish_blocking();
 
     tmds_double_encode_setup_lut(palette, tmds_palette_luts, 3);
     tmds_double_encode_setup_lut(palette + 1, tmds_palette_luts + (PALETTE_SIZE * PALETTE_SIZE * 4), 3);
