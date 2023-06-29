@@ -435,7 +435,10 @@ void DisplayDriver::read_two_lines(uint idx) {
 
     for (int i = 0; i < 2; ++i) {
         FrameTableEntry& entry = frame_table[line_counter + i];
-        addresses[i] = get_line_address(line_counter + i);
+        uint32_t addr = entry.line_address() + (entry.apply_frame_offset() ? frame_data_address_offset : 0);
+        if ((addr & 0x3FF) == 0x3FF) addr -= get_pixel_data_len(entry.line_mode());
+        addresses[i] = addr;
+
         const bool double_pixels = (entry.h_repeat() == 2);
         const uint32_t line_length = frame_data.config.h_length * get_pixel_data_len(entry.line_mode());
         if (double_pixels) line_lengths[idx * 2 + i] = line_length >> 3;

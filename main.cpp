@@ -95,7 +95,7 @@ void handle_i2c_reg_write(uint8_t reg, uint8_t end_reg, uint8_t* regs) {
         int offset = (regs[0xF3] << 24) |
                      (regs[0xF2] << 16) |
                      (regs[0xF1] << 8) |
-                     (regs[0xF0] & 0xFC);
+                     (regs[0xF0]);
         display.set_frame_data_address_offset(offset);
     }
     if (REG_WRITTEN(0xF8)) {

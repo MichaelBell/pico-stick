@@ -89,11 +89,6 @@ private:
     void setup_palette();
     void clear_patches();
     void update_sprites();
-    uint32_t get_line_address(int line_number)
-    {
-        auto &entry = frame_table[line_number];
-        return entry.line_address() + (entry.apply_frame_offset() ? frame_data_address_offset : 0);
-    }
 
     FrameDecode frame_data;
     pico_stick::Resolution current_res;
