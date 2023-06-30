@@ -15,7 +15,7 @@ while 13 not in i2c.scan():
     time.sleep(0.5)
 
 # SPI mode
-i2c.writeto_mem(0x0D, 0xFA, bytearray((1,)))
+i2c.writeto_mem(0x0D, 0xFE, bytearray((1,)))
 
 # Init both RAM banks
 ram.sel(0)

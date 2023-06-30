@@ -91,22 +91,25 @@ void handle_i2c_reg_write(uint8_t reg, uint8_t end_reg, uint8_t* regs) {
         display.clear_late_scanlines();
     }
 
-    if (REG_WRITTEN2(0xF0, 0xF3)) {
-        int offset = (regs[0xF3] << 24) |
-                     (regs[0xF2] << 16) |
-                     (regs[0xF1] << 8) |
-                     (regs[0xF0]);
-        display.set_frame_data_address_offset(offset);
+    for (int i = 0; i < 3; ++i) {
+        if (REG_WRITTEN2(0xF0 + 4*i, 0xF3 + 4*i)) {
+            uint8_t* reg_base = &regs[0xF0 + 4*i];
+            int offset = (reg_base[3] << 24) |
+                        (reg_base[2] << 16) |
+                        (reg_base[1] << 8) |
+                        (reg_base[0]);
+            display.set_frame_data_address_offset(i+1, offset);
+        }
     }
-    if (REG_WRITTEN(0xF8)) {
-        if (regs[0xF9] == 0) { // If not started, can change mode
-            display.set_res((pico_stick::Resolution)regs[0xF8]);
+    if (REG_WRITTEN(0xFC)) {
+        if (regs[0xFD] == 0) { // If not started, can change mode
+            display.set_res((pico_stick::Resolution)regs[0xFC]);
             setup_i2c_reg_data(regs + 0xC0);
         }
-        regs[0xF8] = display.get_res();
+        regs[0xFC] = display.get_res();
     }
-    if (REG_WRITTEN(0xFA)) {
-        display.set_spi_mode(regs[0xFA] != 0);
+    if (REG_WRITTEN(0xFE)) {
+        display.set_spi_mode(regs[0xFE] != 0);
     }
     if (REG_WRITTEN(0xFF)) {
         if (regs[0xFF] == 0x01) {
@@ -169,7 +172,7 @@ void setup_i2c_reg_data(uint8_t* regs) {
     regs[0xDD] = clock_10khz >> 8;
     regs[0xDE] = get_default_voltage_for_clock(display.get_clock_khz());
     
-    regs[0xF8] = display.get_res();
+    regs[0xFC] = display.get_res();
 }
 
 int main() {
@@ -214,7 +217,7 @@ int main() {
     read_edid();
 
     // Wait for I2C to indicate we should start
-    while (regs[0xF9] == 0) __wfe();
+    while (regs[0xFD] == 0) __wfe();
     display.init();
     display.diags_callback = handle_display_diags_callback;
     printf("DV Display Driver Initialised\n");

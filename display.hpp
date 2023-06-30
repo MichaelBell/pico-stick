@@ -38,9 +38,9 @@ public:
     // Disbale a sprite
     void clear_sprite(int8_t i);
 
-    void set_frame_data_address_offset(int offset)
+    void set_frame_data_address_offset(int idx, int offset)
     {
-        frame_data_address_offset = offset;
+        frame_data_address_offset[idx] = offset;
     }
 
     // Called internally by run().
@@ -100,7 +100,7 @@ private:
     int frame_counter = 0;
     int line_counter = 0;
 
-    int frame_data_address_offset = 0;
+    int frame_data_address_offset[4] = {0};
 
     // Must be as long as the greatest supported frame height.
     pico_stick::FrameTableEntry* frame_table;
