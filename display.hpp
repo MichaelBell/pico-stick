@@ -108,9 +108,10 @@ private:
     // Patches that require blending, done by CPU
     Sprite::BlendPatch patches[MAX_FRAME_HEIGHT][MAX_PATCHES_PER_LINE];
 
-    // Must be long enough to accept two lines at maximum data length and maximum width
-    uint32_t pixel_data[NUM_LINE_BUFFERS / 2][(MAX_FRAME_WIDTH * 3) / 2];
-    uint32_t line_lengths[NUM_LINE_BUFFERS];
+    // Must be long enough to accept two lines plus one padding word at maximum data length and maximum width
+    uint32_t pixel_data[NUM_LINE_BUFFERS / 2][((MAX_FRAME_WIDTH + 1) * 3) / 2];
+    uint32_t* pixel_ptr[NUM_LINE_BUFFERS];
+    uint32_t line_lengths[2];
     int8_t line_mode[NUM_LINE_BUFFERS];
 
     Sprite sprites[MAX_SPRITES];

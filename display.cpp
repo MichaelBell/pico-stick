@@ -336,17 +336,16 @@ void DisplayDriver::main_loop() {
         uint32_t *core0_tmds_buf = nullptr, *core1_tmds_buf;
         queue_remove_blocking_u32(&dvi0.q_tmds_free, &core1_tmds_buf);
         sio_hw->fifo_wr = (line_counter - 2) | (line_mode[pixel_data_read_idx * 2] << 24);
-        sio_hw->fifo_wr = uint32_t(pixel_data[pixel_data_read_idx]);
+        sio_hw->fifo_wr = uint32_t(pixel_ptr[pixel_data_read_idx * 2]);
         sio_hw->fifo_wr = uint32_t(core1_tmds_buf);
         __sev();
 
         if (line_counter < frame_data.config.v_length + 1) {
-            const uint32_t core1_line_length = line_lengths[pixel_data_read_idx * 2];
-            uint32_t* core0_colour_buf = &pixel_data[pixel_data_read_idx][core1_line_length];
+            uint32_t* core0_colour_buf = pixel_ptr[pixel_data_read_idx * 2 + 1];
 
             queue_remove_blocking_u32(&dvi0.q_tmds_free, &core0_tmds_buf);
             prepare_scanline_core0(line_counter - 1, core0_colour_buf, core0_tmds_buf, line_mode[pixel_data_read_idx * 2 + 1]);
-        }    
+        }
 
         multicore_fifo_pop_blocking();
         queue_add_blocking_u32(&dvi0.q_tmds_valid, &core1_tmds_buf);
@@ -432,17 +431,26 @@ void DisplayDriver::prepare_scanline_core1(int line_number, uint32_t* pixel_data
 
 void DisplayDriver::read_two_lines(uint idx) {
     uint32_t addresses[2];
+    uint32_t* ptr = pixel_data[idx];
 
     for (int i = 0; i < 2; ++i) {
         FrameTableEntry& entry = frame_table[line_counter + i];
+        uint32_t extra_line_length = 0;
         uint32_t addr = entry.line_address() + (entry.apply_frame_offset() ? frame_data_address_offset : 0);
-        if ((addr & 0x3FF) == 0x3FF) addr -= get_pixel_data_len(entry.line_mode());
+        if ((addr & 0x3FF) == 0x3FF) {
+            addr -= 4;
+            ++extra_line_length;
+            ++ptr;
+        }
         addresses[i] = addr;
+        pixel_ptr[idx * 2 + i] = ptr;
 
         const bool double_pixels = (entry.h_repeat() == 2);
-        const uint32_t line_length = frame_data.config.h_length * get_pixel_data_len(entry.line_mode());
-        if (double_pixels) line_lengths[idx * 2 + i] = line_length >> 3;
-        else line_lengths[idx * 2 + i] = line_length >> 2;
+        uint32_t line_length = frame_data.config.h_length * get_pixel_data_len(entry.line_mode());
+        if (double_pixels) line_length >>= 3;
+        else line_length >>= 2;
+        ptr += line_length;
+        line_lengths[i] = line_length + extra_line_length;
         
         int8_t lmode = 0;
         if (double_pixels) lmode |= DOUBLE_PIXELS;
@@ -451,7 +459,7 @@ void DisplayDriver::read_two_lines(uint idx) {
         line_mode[idx * 2 + i] = lmode;
     }
 
-    ram.multi_read(addresses, &line_lengths[idx * 2], 2, pixel_data[idx]);
+    ram.multi_read(addresses, line_lengths, 2, pixel_data[idx]);
 }
 
 void DisplayDriver::setup_palette() {
