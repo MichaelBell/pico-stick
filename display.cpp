@@ -218,6 +218,11 @@ void DisplayDriver::run() {
 
         update_sprites();
 
+        // Update offsets
+        for (int i = 1; i < NUM_SCROLL_OFFSETS; ++i) {
+            frame_data_address_offset[i] = next_frame_data_address_offset[i];
+        }
+
         // Read first 2 lines
         line_counter = 0;
         read_two_lines(0);
