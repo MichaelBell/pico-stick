@@ -42,8 +42,10 @@ class Sprite {
 
         void update_sprite(FrameDecode& frame_data);
         void setup_patches(class DisplayDriver& disp);
-        static void apply_blend_patch_x(const BlendPatch& patch, uint8_t* frame_pixel_data);
-        static void apply_blend_patch_y(const BlendPatch& patch, uint8_t* frame_pixel_data);
+        static void apply_blend_patch_555_x(const BlendPatch& patch, uint8_t* frame_pixel_data);
+        static void apply_blend_patch_555_y(const BlendPatch& patch, uint8_t* frame_pixel_data);
+        static void apply_blend_patch_byte_x(const BlendPatch& patch, uint8_t* frame_pixel_data);
+        static void apply_blend_patch_byte_y(const BlendPatch& patch, uint8_t* frame_pixel_data);
 
         static void init();
 

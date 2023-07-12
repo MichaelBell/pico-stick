@@ -386,7 +386,8 @@ void DisplayDriver::prepare_scanline_core0(int line_number, uint32_t* pixel_data
     int i;
     for (i = 0; i < MAX_PATCHES_PER_LINE; ++i) {
         if (patches[line_number][i].data) {
-            Sprite::apply_blend_patch_y(patches[line_number][i], (uint8_t*)pixel_data);
+            if (scanline_mode & (RGB888 | PALETTE)) Sprite::apply_blend_patch_byte_x(patches[line_number][i], (uint8_t*)pixel_data);
+            else Sprite::apply_blend_patch_555_y(patches[line_number][i], (uint8_t*)pixel_data);
             patches[line_number][i].data = nullptr;
         }
         else {
@@ -413,7 +414,8 @@ void DisplayDriver::prepare_scanline_core1(int line_number, uint32_t* pixel_data
     int i;
     for (i = 0; i < MAX_PATCHES_PER_LINE; ++i) {
         if (patches[line_number][i].data) {
-            Sprite::apply_blend_patch_x(patches[line_number][i], (uint8_t*)pixel_data);
+            if (scanline_mode & (RGB888 | PALETTE)) Sprite::apply_blend_patch_byte_x(patches[line_number][i], (uint8_t*)pixel_data);
+            else Sprite::apply_blend_patch_555_x(patches[line_number][i], (uint8_t*)pixel_data);
             patches[line_number][i].data = nullptr;
         }
         else {

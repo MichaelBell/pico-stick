@@ -26,10 +26,10 @@ Frame table header:
 Frame tables:
   Number of frames times:
     Frame table length times:
-      1 bit: Apply frame offset to line address    - Whether to apply frame memory address offset specifed in I2C register to the line address.
-      3 bits: Line mode (ARGB1555, RGB888, 8-bit palette, ...)
+      2 bits: Scroll offset index                  - Which scroll offset from the I2C register to apply to the line address, or 0 for none.
+      2 bits: Line mode (ARGB1555, RGB888, 8-bit palette)
       4 bits: Horizontal repeat, must be 1 or 2 (currently assumed to be 1)
-      3 bytes: Line address (must be a multiple of 4)
+      3 bytes: Line address
 
 Palette tables:
   Number of palettes per frame, multiplied by number of frames if palette advance is true:

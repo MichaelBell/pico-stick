@@ -64,12 +64,10 @@ __scratch_x("sprite_buffer") uint32_t Sprite::buffer_x[MAX_SPRITE_WIDTH / 2];
 __scratch_y("sprite_buffer") int Sprite::dma_channel_y;
 __scratch_y("sprite_buffer") uint32_t Sprite::buffer_y[MAX_SPRITE_WIDTH / 2];
 
-__always_inline static void blend_one(BlendMode mode, uint16_t* sprite_pixel_ptr, uint16_t* frame_pixel_ptr) {
+__always_inline static void blend_one_555(BlendMode mode, uint16_t* sprite_pixel_ptr, uint16_t* frame_pixel_ptr) {
     constexpr uint16_t alpha_mask = 0x8000;
     constexpr uint16_t blend_mask = 0x7BDE;
     switch (mode) {
-        // TODO: Should be able to do two pixels at a time with no branching using bit ops,
-        // can generate masks quickly from the alpha by multiplying by 0xFFFE (RP2040 has single cycle multiply)
         case BLEND_DEPTH:
         {
             if ((*sprite_pixel_ptr & ~*frame_pixel_ptr) & alpha_mask) {
@@ -105,14 +103,14 @@ __always_inline static void blend_one(BlendMode mode, uint16_t* sprite_pixel_ptr
     }
 }
 
-__always_inline static void apply_blend_patch(const Sprite::BlendPatch& patch, uint8_t* frame_pixel_data, uint32_t* sprite_buffer, int dma_channel) {
+__always_inline static void apply_blend_patch_555(const Sprite::BlendPatch& patch, uint8_t* frame_pixel_data, uint32_t* sprite_buffer, int dma_channel) {
     uint16_t* sprite_pixel_ptr = (uint16_t*)patch.data;
     uint16_t* const sprite_end_ptr = (uint16_t*)(patch.data + patch.len);
     uint16_t* frame_pixel_ptr = (uint16_t*)((uint8_t*)frame_pixel_data + patch.offset);
 
     // Align sprite_pixel_ptr
     if ((uintptr_t)sprite_pixel_ptr & 3) {
-        blend_one(patch.mode, sprite_pixel_ptr++, frame_pixel_ptr++);
+        blend_one_555(patch.mode, sprite_pixel_ptr++, frame_pixel_ptr++);
     }
 
     uint32_t* sprite_pixel_ptr32 = (uint32_t*)sprite_pixel_ptr;
@@ -133,7 +131,7 @@ __always_inline static void apply_blend_patch(const Sprite::BlendPatch& patch, u
 
     // Final pixel
     if ((uintptr_t)sprite_end_ptr & 3) {
-        blend_one(patch.mode, sprite_end_ptr - 1, (uint16_t*)((uint8_t*)frame_pixel_data + patch.offset) + (sprite_end_ptr - 1 - (uint16_t*)patch.data));
+        blend_one_555(patch.mode, sprite_end_ptr - 1, (uint16_t*)((uint8_t*)frame_pixel_data + patch.offset) + (sprite_end_ptr - 1 - (uint16_t*)patch.data));
     }
 
     if (sprite_pixel_ptr32 >= sprite_end_ptr32) {
@@ -196,8 +194,6 @@ __always_inline static void apply_blend_patch(const Sprite::BlendPatch& patch, u
                       [sprite_pixel_ptr] "+l" (sprite_pixel_ptr32) :
                       [alpha_mask] "l" (alpha_mask),
                       [blend_mask] "l" (blend_mask),
-                      [mode] "r" (patch.mode),
-                      [BLEND2] "r" (BLEND_BLEND2),
                       [sprite_end_ptr] "r" (sprite_end_ptr32) :
                       "r1",  // sprite_pixel
                       "r2",  // frame_pixel
@@ -259,12 +255,51 @@ __always_inline static void apply_blend_patch(const Sprite::BlendPatch& patch, u
     }
 }
 
-void __scratch_x("sprite_blend") Sprite::apply_blend_patch_x(const BlendPatch& patch, uint8_t* frame_pixel_data) {
-    apply_blend_patch(patch, frame_pixel_data, buffer_x, dma_channel_x);
+__always_inline static void apply_blend_patch_byte(const Sprite::BlendPatch& patch, uint8_t* frame_pixel_data, uint32_t* sprite_buffer, int dma_channel) {
+    uint8_t* sprite_pixel_ptr = (uint8_t*)patch.data;
+    uint8_t* const sprite_end_ptr = (uint8_t*)(patch.data + patch.len);
+    uint8_t* frame_pixel_ptr = ((uint8_t*)frame_pixel_data + patch.offset);
+    constexpr uint8_t alpha_mask = 0x01;
+
+    switch (patch.mode) {
+        case BLEND_DEPTH:
+        case BLEND_BLEND:
+            for (; sprite_pixel_ptr < sprite_end_ptr; ++sprite_pixel_ptr, ++frame_pixel_ptr) {
+                if ((*sprite_pixel_ptr & ~*frame_pixel_ptr) & alpha_mask) {
+                    *frame_pixel_ptr = *sprite_pixel_ptr & (~alpha_mask);
+                }
+            }
+            break;
+        case BLEND_DEPTH2:
+        case BLEND_BLEND2:
+            for (; sprite_pixel_ptr < sprite_end_ptr; ++sprite_pixel_ptr, ++frame_pixel_ptr) {
+                if (*sprite_pixel_ptr & alpha_mask) {
+                    *frame_pixel_ptr = *sprite_pixel_ptr;
+                }
+            }
+            break;
+        default:
+            while (sprite_pixel_ptr < sprite_end_ptr) {
+                *frame_pixel_ptr++ = *sprite_pixel_ptr++;
+            }
+            break;
+    }
 }
 
-void __scratch_y("sprite_blend") Sprite::apply_blend_patch_y(const BlendPatch& patch, uint8_t* frame_pixel_data) {
-    apply_blend_patch(patch, frame_pixel_data, buffer_y, dma_channel_y);
+void __scratch_x("sprite_blend") Sprite::apply_blend_patch_555_x(const BlendPatch& patch, uint8_t* frame_pixel_data) {
+    apply_blend_patch_555(patch, frame_pixel_data, buffer_x, dma_channel_x);
+}
+
+void __scratch_y("sprite_blend") Sprite::apply_blend_patch_555_y(const BlendPatch& patch, uint8_t* frame_pixel_data) {
+    apply_blend_patch_555(patch, frame_pixel_data, buffer_y, dma_channel_y);
+}
+
+void __scratch_x("sprite_blend") Sprite::apply_blend_patch_byte_x(const BlendPatch& patch, uint8_t* frame_pixel_data) {
+    apply_blend_patch_byte(patch, frame_pixel_data, buffer_x, dma_channel_x);
+}
+
+void __scratch_y("sprite_blend") Sprite::apply_blend_patch_byte_y(const BlendPatch& patch, uint8_t* frame_pixel_data) {
+    apply_blend_patch_byte(patch, frame_pixel_data, buffer_y, dma_channel_y);
 }
 
 void Sprite::init() {
