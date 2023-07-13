@@ -1,18 +1,24 @@
 # DV Stick Driver <!-- omit in toc -->
 
-The DV Stick is a system with 2 RP2040s, one driving the digital video and the other running application code.
+The DV Stick is a system with 2 RP2040s, one driving the digital video (the GPU) and the other running application code (the CPU).
 
-This is the repo for the "driver" side of the DV stick, which uses PicoDVI to drive the display.
+This is the repo for the CPU side of the DV stick, which uses PicoDVI to drive the display.
 
 ## Getting it running
 
-The driver RP2040 has no flash and is designed to be programmed over SWD either from the debugging port, or direct from the application Pico.
+The driver RP2040 has no flash and is designed to be programmed over SWD either from the debugging port, or direct from the application CPU Pico.
 
-## Loading as from the application
+## Loading from the CPU
 
-The build produces a `pico-stick.h` in the `build/` directory that should be copied to `drivers/dv_display` in the [dv_stick branch](https://github.com/MichaelBell/pimoroni-pico/tree/dv_stick) of the pimoroni-pico repo.  This is also saved it the github action artifact.
+The build produces a `pico-stick.h` in the `build/` directory that should be copied to `drivers/dv_display` in the [dv_stick branch](https://github.com/MichaelBell/pimoroni-pico/tree/dv_stick) of the pimoroni-pico repo.  This is also saved in the github action artifact.
 
 When the DVDisplay driver is initialized it will upload the image from `pico-stick.h` to the driver RP2040.
+
+## Writing your own CPU side firmware
+
+If you want to bypass the `dv_display` and write your own CPU side firmware, this describes the [format for the data read from RAM](https://github.com/MichaelBell/pico-stick/blob/main/FrameFormat.txt) by the GPU.  I would recommend grabbing the SWD programmer from the dv_display driver to get the GPU firmware loaded.
+
+Between RAM bank switches the CPU interacts with the GPU over I2C, the interface is [documented in a spreadsheet](https://docs.google.com/spreadsheets/d/1PKt1zPrB67C1ntRw4sIHiO5FZF0tHdjhlcEdujFQAuE/edit#gid=0).
 
 ## Loading over SWD for debugging
 
