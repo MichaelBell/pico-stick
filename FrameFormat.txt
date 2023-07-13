@@ -4,21 +4,21 @@ Pico Stick RAM transfer format
 
 DVI setup: 
   4 bytes: 
-    Res select: (Off, 640x480, 720x480, 720x576, 800x480, 800x600)   - if doesn't match the boot mode specified over I2C then DVI timing is stopped.
+    Res select: (Off, 640x480, 720x480, 720x576, 800x480, 800x600)   - if doesn't match the boot mode specified over I2C then DVI timing is stopped (not implemented)
     Unused
-    Vertical repeat                                - number of times to repeat each scanline vertically (currently assumed to be 1)
-    Output Enable: (On, Off)                       - if off then DVI timing but display is black.
-  2 bytes: Horizontal offset (e.g. 0)              - To allow part of the screen to be used, can specify an offset.  This is in pixels (the configured repeat is not taken into account), must be a multiple of 2.
-  2 bytes: Horizontal length (e.g. 640)            - Width of the part of the screen to fill.  This is in pixels (the configured repeat is not taken into account, because it can be configured per line), must be a multiple of 2.
-  2 bytes: Vertical offset   (e.g. 0)              - To allow part of the screen to be used, can specify an offset.  This is in repeated lines (the configured repeat *is* taken into account).
-  2 bytes: Vertical length   (e.g. 480)            - Height of the part of the screen to fill.  This is in repeated lines (the configured repeat *is* taken into account).
+    Vertical repeat                                - number of times to repeat each scanline vertically
+    Output Enable: (On, Off)                       - if off then DVI timing but display is black (not implemented)
+  2 bytes: Horizontal offset (e.g. 0)              - To allow part of the screen to be used, can specify an offset.  This is in pixels (the configured repeat is not taken into account), must be a multiple of 2.  (Not implemented - must be 0)
+  2 bytes: Horizontal length (e.g. 640)            - Width of the part of the screen to fill.  This is in pixels (the configured repeat is not taken into account, because it can be configured per line), must be a multiple of 2.  (Not implemented - must be full width)
+  2 bytes: Vertical offset   (e.g. 0)              - To allow part of the screen to be used, can specify an offset.  This is in repeated lines (the configured repeat *is* taken into account).  (Not implemented - must be 0)
+  2 bytes: Vertical length   (e.g. 480)            - Height of the part of the screen to fill.  This is in repeated lines (the configured repeat *is* taken into account).  (Not implemented - must be full height)
   
 Frame table header:
   2 bytes: Number of frames                        - Number of frame descriptions that follow.  Display will wrap through these frames allowing animations or transitions without flipping the RAMs
   2 bytes: First frame number                      - The first frame to display ater the RAMs are flipped.
   2 bytes: Frame table length                      - Length of each frame table.  Normally same as vertical length.
-  1 byte:  Frame rate divider                      - The frame counter is updated at the DVI frame rate divided by this divider.
-  1 byte:  Bank number                             - Indication of which RAM bank this is.  When driver notices sees this value is changed it resets the output frame to the configured first frame number.
+  1 byte:  Frame rate divider                      - The frame counter is updated at the DVI frame rate divided by this divider. (If 0 the frame number is not advanced but can be updated over I2C)
+  1 byte:  Bank number                             - Indication of which RAM bank this is.  When driver sees this value is changed it resets the output frame to the configured first frame number.
   1 byte:  Number of palettes per frame            - 0 or 1.
   1 byte:  Palette advance                         - 0 or 1 to indicate whether the palette tables should be indexed by the frame counter.
   2 bytes: Number of sprites in sprite table
@@ -41,19 +41,19 @@ Palette tables:
 Sprite table:
   Number of sprites times:
     4 bits: Sprite mode (ARGB1555, RGB888, 8-bit palette, ...)
-    4 bits: Sprite submode (Palette index)
-    3 bytes: Sprite address (must be a multiple of 4)
+    4 bits: Sprite submode (Unused, was originally thinking palette index)
+    3 bytes: Sprite entry address (must be a multiple of 4)
 
 Sprite entry:
   1 byte: Width
   1 byte: Height
   Height times:
-    1 byte line offset
-    1 byte line width
+    1 byte x offset of first pixel on the line (allows transparent pixels at the start of the line to be skipped)
+    1 byte line width from the offset (allows transparent pixels at the end of the line to be skipped)
   2 bytes padding if height is even
   Height times:
     Line width times:
-      Sprite data
+      Sprite pixel data
 
 Line and sprite data can be arranged in any way in the rest of the RAM, addressed by the tables above.
 The rest of RAM can also store arbitrary data for use by the application.

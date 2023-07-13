@@ -204,6 +204,22 @@ void DisplayDriver::run() {
         }
         //printf("%hdx%hd\n", frame_data.config.h_length, frame_data.config.v_length);
 
+        // Update frame counter
+        if (frame_data.frame_table_header.bank_number != last_bank) {
+            frame_counter = frame_data.frame_table_header.first_frame;
+            last_bank = frame_data.frame_table_header.bank_number;
+            frames_to_next_count = frame_data.frame_table_header.frame_rate_divider;
+        }
+        else if (frame_data.frame_table_header.frame_rate_divider != 0)
+        {
+            if (--frames_to_next_count <= 0) {
+                if (++frame_counter >= frame_data.frame_table_header.num_frames) {
+                    frame_counter = 0;
+                }
+                frames_to_next_count = frame_data.frame_table_header.frame_rate_divider;
+            }
+        }
+
         frame_data.get_frame_table(frame_counter, frame_table);
 
         if (frame_data.config.v_repeat != dvi0.vertical_repeat) {

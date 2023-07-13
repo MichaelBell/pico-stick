@@ -91,6 +91,10 @@ void handle_i2c_reg_write(uint8_t reg, uint8_t end_reg, uint8_t* regs) {
         display.clear_late_scanlines();
     }
 
+    if (REG_WRITTEN(0xEF)) {
+        display.set_frame_counter(regs[0xEF]);
+    }
+
     for (int i = 0; i < 3; ++i) {
         if (REG_WRITTEN2(0xF0 + 4*i, 0xF3 + 4*i)) {
             uint8_t* reg_base = &regs[0xF0 + 4*i];

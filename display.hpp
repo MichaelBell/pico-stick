@@ -38,9 +38,13 @@ public:
     // Disbale a sprite
     void clear_sprite(int8_t i);
 
-    void set_frame_data_address_offset(int idx, int offset)
-    {
+    void set_frame_data_address_offset(int idx, int offset) {
         next_frame_data_address_offset[idx] = offset;
+    }
+
+    // Override the value of frame_counter, used to switch frames if the frame divider is 0
+    void set_frame_counter(int val) {
+        frame_counter = val;
     }
 
     // Called internally by run().
@@ -97,6 +101,8 @@ private:
     struct dvi_inst dvi0;
     struct semaphore dvi_start_sem;
 
+    uint8_t last_bank = 2;
+    int frames_to_next_count = 0;
     int frame_counter = 0;
     int line_counter = 0;
 
