@@ -137,7 +137,7 @@ void handle_i2c_sprite_write(uint8_t sprite, uint8_t end_sprite, uint8_t* sprite
         int16_t sprite_idx = (int8_t(sprite_ptr[2]) << 8) | sprite_ptr[1];
         int16_t x = (sprite_ptr[4] << 8) | sprite_ptr[3];
         int16_t y = (sprite_ptr[6] << 8) | sprite_ptr[5];
-        display.set_sprite(i, sprite_idx, (pico_stick::BlendMode)sprite_ptr[0], x, y);
+        display.set_sprite(i, sprite_idx, (pico_stick::BlendMode)(sprite_ptr[0] & 0x7), x, y, (sprite_ptr[0] >> 3) + 1);
     }
 }
 

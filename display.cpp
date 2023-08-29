@@ -378,10 +378,11 @@ void DisplayDriver::main_loop() {
     }
 }
 
-void DisplayDriver::set_sprite(int8_t i, int16_t idx, BlendMode mode, int16_t x, int16_t y) {
+void DisplayDriver::set_sprite(int8_t i, int16_t idx, BlendMode mode, int16_t x, int16_t y, uint8_t v_scale) {
     sprites[i].set_sprite_table_idx(idx);
     sprites[i].set_blend_mode(mode);
     sprites[i].set_sprite_pos(x, y);
+    sprites[i].set_sprite_v_scale(v_scale);
 }
 
 void DisplayDriver::move_sprite(int8_t i, int16_t x, int16_t y) {

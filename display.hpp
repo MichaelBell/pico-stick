@@ -30,7 +30,7 @@ public:
     void run();
 
     // Setup a sprite with data and position
-    void set_sprite(int8_t i, int16_t table_idx, pico_stick::BlendMode mode, int16_t x, int16_t y);
+    void set_sprite(int8_t i, int16_t table_idx, pico_stick::BlendMode mode, int16_t x, int16_t y, uint8_t v_scale=1);
 
     // Move an existing sprite
     void move_sprite(int8_t i, int16_t x, int16_t y);

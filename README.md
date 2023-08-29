@@ -2,7 +2,11 @@
 
 The DV Stick is a system with 2 RP2040s, one driving the digital video (the GPU) and the other running application code (the CPU).
 
-This is the repo for the CPU side of the DV stick, which uses PicoDVI to drive the display.
+This is the repo for the GPU side of the DV stick, which uses PicoDVI to drive the display.
+
+## Building
+
+Note that currently this firmware only builds using gcc 9.
 
 ## Getting it running
 

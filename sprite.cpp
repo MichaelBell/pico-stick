@@ -19,7 +19,7 @@ void Sprite::setup_patches(DisplayDriver& disp) {
     if (idx < 0) return;
 
     for (int i = 0; i < header.height; ++i) {
-        const int line_idx = y + i;
+        int line_idx = y + i*v_scale;
         if (line_idx < 0 || line_idx >= disp.frame_data.config.v_length) continue;
         auto& line = lines[i];
         if (line.width == 0) continue;
@@ -44,18 +44,21 @@ void Sprite::setup_patches(DisplayDriver& disp) {
 
         const int len = end - start;
         uint8_t* const sprite_data_ptr = data + line.data_start + start_offset;
-        auto* patch = disp.patches[line_idx];
-        int j = 0;
-        for (; patch->data && j < MAX_PATCHES_PER_LINE; ++j) {
-            ++patch;
+
+        for (uint8_t i = 0; i < v_scale && line_idx < disp.frame_data.config.v_length; ++i) {
+            auto* patch = disp.patches[line_idx++];
+            int j = 0;
+            for (; patch->data && j < MAX_PATCHES_PER_LINE; ++j) {
+                ++patch;
+            }
+            if (j == MAX_PATCHES_PER_LINE) {
+                continue;
+            }
+            patch->data = sprite_data_ptr;
+            patch->offset = start;
+            patch->len = len;
+            patch->mode = blend_mode;
         }
-        if (j == MAX_PATCHES_PER_LINE) {
-            continue;
-        }
-        patch->data = sprite_data_ptr;
-        patch->offset = start;
-        patch->len = len;
-        patch->mode = blend_mode;
     }
 }
 

@@ -22,6 +22,10 @@ class Sprite {
             blend_mode = mode;
         }
 
+        void set_sprite_v_scale(uint8_t new_v_scale) {
+            v_scale = new_v_scale;
+        }
+
         pico_stick::BlendMode get_blend_mode() const {
             return blend_mode;
         }
@@ -53,6 +57,7 @@ class Sprite {
         int16_t x;
         int16_t y;
         int16_t idx = -1;
+        uint8_t v_scale = 1;
         pico_stick::BlendMode blend_mode = pico_stick::BLEND_NONE;
 
         pico_stick::SpriteHeader header;
