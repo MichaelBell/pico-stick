@@ -500,8 +500,21 @@ void DisplayDriver::setup_palette() {
 }
 
 void DisplayDriver::update_sprites() {
+    Sprite::clear_sprite_data();
     for (int i = 0; i < MAX_SPRITES; ++i) {
-        sprites[i].update_sprite(frame_data);
+        int16_t sprite_table_idx = sprites[i].get_sprite_table_idx();
+        if (sprite_table_idx < 0) continue;
+
+        bool copied = false;
+        for (int j = 0; j < i; ++j) {
+            if (sprites[j].get_sprite_table_idx() == sprite_table_idx) {
+                sprites[i].copy_sprite(sprites[j]);
+                copied = true;
+                break;
+            }
+        }
+        
+        if (!copied) sprites[i].update_sprite(frame_data);
         sprites[i].setup_patches(*this);
     }
 }

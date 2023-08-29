@@ -51,13 +51,13 @@ void FrameDecode::get_sprite_header(int idx, pico_stick::SpriteHeader* sprite_he
     sprite_header->height = header_ptr[1];
 }
 
-void FrameDecode::get_sprite(int idx, const pico_stick::SpriteHeader& sprite_header, pico_stick::SpriteLine* sprite_line_table, uint32_t* sprite_data) {
+uint32_t FrameDecode::get_sprite(int idx, const pico_stick::SpriteHeader& sprite_header, pico_stick::SpriteLine* sprite_line_table, uint32_t* sprite_data, uint32_t buffer_len) {
     uint32_t address = sprite_header.sprite_address();
 
     assert(sprite_header.height <= MAX_SPRITE_HEIGHT);
     ram.read_blocking(address, buffer, (sprite_header.height >> 1) + 1);
 
-    uint16_t total_length = 0;
+    uint32_t total_length = 0;
     uint8_t* ptr = (uint8_t*)buffer + 2;
     for (uint8_t y = 0; y < sprite_header.height; ++y) {
         sprite_line_table[y].data_start = total_length;
@@ -66,8 +66,13 @@ void FrameDecode::get_sprite(int idx, const pico_stick::SpriteHeader& sprite_hea
         total_length += sprite_line_table[y].width * get_pixel_data_len(sprite_header.sprite_mode());
     }
 
+    if (total_length > buffer_len) return 0;
+    
     address += 4 + 4 * (sprite_header.height >> 1);
-    ram.read(address, sprite_data, (total_length + 3) >> 2);
+    uint32_t length_in_words = (total_length + 3) >> 2;
+    ram.read(address, sprite_data, length_in_words);
+
+    return length_in_words << 2;
 }
 
 uint32_t FrameDecode::get_frame_table_address() {

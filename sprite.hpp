@@ -12,7 +12,7 @@ class Sprite {
 
         bool is_enabled() const { return idx >= 0; }
 
-        uint16_t get_sprite_table_idx() const { return idx; }
+        int16_t get_sprite_table_idx() const { return idx; }
 
         void set_sprite_pos(int16_t new_x, int16_t new_y) {
             x = new_x; y = new_y;
@@ -45,6 +45,7 @@ class Sprite {
         };
 
         void update_sprite(FrameDecode& frame_data);
+        void copy_sprite(const Sprite& other);
         void setup_patches(class DisplayDriver& disp);
         static void apply_blend_patch_555_x(const BlendPatch& patch, uint8_t* frame_pixel_data);
         static void apply_blend_patch_555_y(const BlendPatch& patch, uint8_t* frame_pixel_data);
@@ -52,6 +53,7 @@ class Sprite {
         static void apply_blend_patch_byte_y(const BlendPatch& patch, uint8_t* frame_pixel_data);
 
         static void init();
+        static void clear_sprite_data();
 
     private:
         int16_t x;
@@ -62,7 +64,7 @@ class Sprite {
 
         pico_stick::SpriteHeader header;
         pico_stick::SpriteLine lines[MAX_SPRITE_HEIGHT];
-        alignas(4) uint8_t data[MAX_SPRITE_DATA_BYTES];
+        uint8_t* data = nullptr;
 
         static int dma_channel_x;
         static int dma_channel_y;

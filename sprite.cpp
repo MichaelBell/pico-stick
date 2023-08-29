@@ -6,17 +6,37 @@
 
 using namespace pico_stick;
 
+uint8_t sprite_data_buffer[MAX_SPRITE_DATA_BYTES];
+uint8_t* sprite_data_end;
+
 void Sprite::update_sprite(FrameDecode& frame_data) {
-    if (idx < 0) return;
+    assert(idx >= 0);
 
     frame_data.get_sprite_header(idx, &header);
 
     //printf("Setup sprite width %d, height %d\n", header.width, header.height);
-    frame_data.get_sprite(idx, header, lines, (uint32_t*)data);
+    uint32_t sprite_data_len = frame_data.get_sprite(idx, header, lines, (uint32_t*)sprite_data_end, (sprite_data_buffer + MAX_SPRITE_DATA_BYTES) - sprite_data_end);
+    if (sprite_data_len > 0) {
+        data = sprite_data_end;
+        sprite_data_end += sprite_data_len;
+    }
+    else {
+        data = nullptr;
+    }
+}
+
+void Sprite::copy_sprite(const Sprite& other) {
+    assert(idx >= 0);
+    assert(idx == other.idx);
+
+    header = other.header;
+    memcpy(lines, other.lines, header.height * sizeof(pico_stick::SpriteLine));
+    data = other.data;
 }
 
 void Sprite::setup_patches(DisplayDriver& disp) {
-    if (idx < 0) return;
+    assert(idx >= 0);
+    if (data == nullptr) return;
 
     for (int i = 0; i < header.height; ++i) {
         int line_idx = y + i*v_scale;
@@ -335,4 +355,10 @@ void Sprite::init() {
         0,
         false
     );
+
+    clear_sprite_data();
+}
+
+void Sprite::clear_sprite_data() {
+    sprite_data_end = sprite_data_buffer;
 }
