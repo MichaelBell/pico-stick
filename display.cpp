@@ -461,11 +461,6 @@ void DisplayDriver::read_two_lines(uint idx) {
         FrameTableEntry& entry = frame_table[line_counter + i];
         uint32_t extra_line_length = 0;
         uint32_t addr = entry.line_address() + frame_data_address_offset[entry.frame_offset_idx()];
-        if ((addr & 0x3FF) == 0x3FF) {
-            addr -= 4;
-            ++extra_line_length;
-            ++ptr;
-        }
         addresses[i] = addr;
         pixel_ptr[idx * 2 + i] = ptr;
 
