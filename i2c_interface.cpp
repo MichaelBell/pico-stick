@@ -72,6 +72,8 @@ namespace {
                 cxt->data_written = true;
             } else {
                 ++cxt->cur_register;
+                // Read and discard the byte
+                i2c_read_byte(i2c);
             }
             break;
         case I2C_SLAVE_REQUEST: // master is requesting data
