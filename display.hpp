@@ -47,6 +47,11 @@ public:
         frame_counter = val;
     }
 
+    // Set the value of palette index
+    void set_palette_idx(int val) {
+        palette_idx = val;
+    }
+
     // Called internally by run().
     void run_core1();
 
@@ -105,6 +110,7 @@ private:
     int frames_to_next_count = 0;
     int frame_counter = 0;
     int line_counter = 0;
+    int palette_idx = 0;
 
     int frame_data_address_offset[NUM_SCROLL_OFFSETS] = {0};
     int next_frame_data_address_offset[NUM_SCROLL_OFFSETS] = {0};

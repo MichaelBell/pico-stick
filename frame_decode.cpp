@@ -34,7 +34,7 @@ void FrameDecode::get_frame_table(int frame_counter, FrameTableEntry* frame_tabl
 }
 
 void FrameDecode::get_palette(int idx, int frame_counter, uint8_t palette[PALETTE_SIZE * 3]) {
-    uint32_t address = get_palette_table_address() + (idx + frame_table_header.num_palettes * (frame_table_header.palette_advance ? frame_counter : 0)) * PALETTE_SIZE * 3;
+    uint32_t address = get_palette_table_address() + idx * PALETTE_SIZE * 3;
 
     ram.read(address, (uint32_t*)palette, (PALETTE_SIZE * 3) / 4);
 }
@@ -84,5 +84,5 @@ uint32_t FrameDecode::get_palette_table_address() {
 }
 
 uint32_t FrameDecode::get_sprite_table_address() {
-    return get_palette_table_address() + frame_table_header.num_palettes * (frame_table_header.palette_advance ? frame_table_header.num_frames : 1) * PALETTE_SIZE * 3;
+    return get_palette_table_address() + frame_table_header.num_palettes * PALETTE_SIZE * 3;
 }

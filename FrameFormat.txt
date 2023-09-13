@@ -19,7 +19,7 @@ Frame table header:
   2 bytes: Frame table length                      - Length of each frame table.  Normally same as vertical length.
   1 byte:  Frame rate divider                      - The frame counter is updated at the DVI frame rate divided by this divider. (If 0 the frame number is not advanced but can be updated over I2C)
   1 byte:  Bank number                             - Indication of which RAM bank this is.  When driver sees this value is changed it resets the output frame to the configured first frame number.
-  1 byte:  Number of palettes per frame            - 0 or 1.
+  1 byte:  Number of palettes                      - 
   1 byte:  Palette advance                         - 0 or 1 to indicate whether the palette tables should be indexed by the frame counter.
   2 bytes: Number of sprites in sprite table
 
@@ -32,7 +32,7 @@ Frame tables:
       3 bytes: Line address
 
 Palette tables:
-  Number of palettes per frame, multiplied by number of frames if palette advance is true:
+  Number of palettes times:
     32 times:
       1 byte: Red
       1 byte: Blue

@@ -91,6 +91,10 @@ void handle_i2c_reg_write(uint8_t reg, uint8_t end_reg, uint8_t* regs) {
         display.clear_late_scanlines();
     }
 
+    if (REG_WRITTEN(0xEE)) {
+        display.set_palette_idx(regs[0xEE]);
+    }
+
     if (REG_WRITTEN(0xEF)) {
         display.set_frame_counter(regs[0xEF]);
     }

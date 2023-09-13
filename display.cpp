@@ -209,12 +209,19 @@ void DisplayDriver::run() {
             frame_counter = frame_data.frame_table_header.first_frame;
             last_bank = frame_data.frame_table_header.bank_number;
             frames_to_next_count = frame_data.frame_table_header.frame_rate_divider;
+
+            if (frame_data.frame_table_header.palette_advance || palette_idx >= frame_data.frame_table_header.num_palettes) {
+                palette_idx = 0;
+            }
         }
         else if (frame_data.frame_table_header.frame_rate_divider != 0)
         {
             if (--frames_to_next_count <= 0) {
                 if (++frame_counter >= frame_data.frame_table_header.num_frames) {
                     frame_counter = 0;
+                }
+                if (frame_data.frame_table_header.palette_advance && ++palette_idx >= frame_data.frame_table_header.num_palettes) {
+                    palette_idx = 0;
                 }
                 frames_to_next_count = frame_data.frame_table_header.frame_rate_divider;
             }
@@ -485,7 +492,7 @@ void DisplayDriver::setup_palette() {
     if (frame_data.frame_table_header.num_palettes == 0) return;
 
     uint8_t palette[PALETTE_SIZE * 3];
-    frame_data.get_palette(0, frame_counter, palette);
+    frame_data.get_palette(palette_idx, frame_counter, palette);
     ram.wait_for_finish_blocking();
 
     tmds_double_encode_setup_lut(palette, tmds_palette_luts, 3);
