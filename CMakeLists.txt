@@ -82,8 +82,8 @@ pico_add_link_depend(${NAME_WIDE} ${CMAKE_CURRENT_LIST_DIR}/memmap.ld)
 pico_generate_pio_header(${NAME_WIDE} ${CMAKE_CURRENT_LIST_DIR}/aps6404.pio)
 
 # Don't forget to link the libraries you need!
-target_link_libraries(${NAME} pico_stdlib pico_multicore i2c_slave libdvi hardware_watchdog hardware_pwm)
-target_link_libraries(${NAME_WIDE} pico_stdlib pico_multicore i2c_slave libdvi hardware_watchdog hardware_pwm)
+target_link_libraries(${NAME} pico_stdlib pico_multicore i2c_slave libdvi hardware_watchdog hardware_pwm hardware_adc)
+target_link_libraries(${NAME_WIDE} pico_stdlib pico_multicore i2c_slave libdvi hardware_watchdog hardware_pwm hardware_adc)
 
 # create map/bin/hex file etc.
 #pico_add_extra_outputs(${NAME})

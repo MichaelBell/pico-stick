@@ -11,6 +11,7 @@
 #include "hardware/watchdog.h"
 #include "pico/bootrom.h"
 #include "hardware/structs/pads_qspi.h"
+#include "hardware/adc.h"
 
 #include "i2c_interface.hpp"
 #include "display.hpp"
@@ -183,6 +184,45 @@ void setup_i2c_reg_data(uint8_t* regs) {
     regs[0xFC] = display.get_res();
 }
 
+void start_temp_sense(uint8_t* regs) {
+    // Set up ADC
+    adc_init();
+    adc_set_temp_sensor_enabled(true);
+    adc_select_input(4);
+
+    adc_fifo_setup(
+        true,    // Write each completed conversion to the sample FIFO
+        true,    // Enable DMA data request (DREQ)
+        1,       // DREQ (and IRQ) asserted when at least 1 sample present
+        false,   // Disable error bit
+        false    // Full 12-bit readings
+    );
+
+    // Go as slow as possible
+    adc_set_clkdiv(65535);
+
+    uint dma_chan = dma_claim_unused_channel(true);
+    dma_channel_config cfg = dma_channel_get_default_config(dma_chan);
+
+    // Reading from constant address, writing to I2C register address
+    channel_config_set_transfer_data_size(&cfg, DMA_SIZE_16);
+    channel_config_set_read_increment(&cfg, false);
+    channel_config_set_write_increment(&cfg, false);
+
+    // Pace transfers based on availability of ADC samples
+    channel_config_set_dreq(&cfg, DREQ_ADC);
+
+    // Transfer "forever" - should work for 2^32 / (48MHz / 65535) = 67.8 days
+    dma_channel_configure(dma_chan, &cfg,
+        &regs[0xCE],    // dst
+        &adc_hw->fifo,  // src
+        0xFFFFFFFF,     // transfer count
+        true            // start immediately
+    );
+
+    adc_run(true);
+}
+
 int main() {
 	stdio_init_all();
     
@@ -220,6 +260,7 @@ int main() {
     uint8_t* regs = i2c_slave_if::init(handle_i2c_sprite_write, handle_i2c_reg_write);
     setup_i2c_reg_data(regs);
     regs -= 0xC0;
+    start_temp_sense(regs);
     printf("DV Display Driver I2C Initialised\n");
 
     read_edid();
