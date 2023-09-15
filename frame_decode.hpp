@@ -24,9 +24,8 @@ class FrameDecode {
         // Get a sprite header
         void get_sprite_header(int idx, pico_stick::SpriteHeader* sprite_header);
         
-        // Fill a sprite into appropriately sized buffer
-        // Returns the length of the sprite data written, in bytes (always a multiple of 4)
-        uint32_t get_sprite(int idx, const pico_stick::SpriteHeader& sprite_header, pico_stick::SpriteLine* sprite_line_table, uint32_t* sprite_data, uint32_t buffer_len);
+        // Read the sprite line info (not the sprite data itself)
+        void get_sprite(int idx, const pico_stick::SpriteHeader& sprite_header, pico_stick::SpriteLine* sprite_line_table);
 
     public:
         pico_stick::Config config;

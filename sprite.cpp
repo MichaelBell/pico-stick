@@ -6,23 +6,13 @@
 
 using namespace pico_stick;
 
-uint8_t sprite_data_buffer[MAX_SPRITE_DATA_BYTES];
-uint8_t* sprite_data_end;
-
 void Sprite::update_sprite(FrameDecode& frame_data) {
     assert(idx >= 0);
 
     frame_data.get_sprite_header(idx, &header);
 
     //printf("Setup sprite width %d, height %d\n", header.width, header.height);
-    uint32_t sprite_data_len = frame_data.get_sprite(idx, header, lines, (uint32_t*)sprite_data_end, (sprite_data_buffer + MAX_SPRITE_DATA_BYTES) - sprite_data_end);
-    if (sprite_data_len > 0) {
-        data = sprite_data_end;
-        sprite_data_end += sprite_data_len;
-    }
-    else {
-        data = nullptr;
-    }
+    frame_data.get_sprite(idx, header, lines);
 }
 
 void Sprite::copy_sprite(const Sprite& other) {
@@ -31,13 +21,12 @@ void Sprite::copy_sprite(const Sprite& other) {
 
     header = other.header;
     memcpy(lines, other.lines, header.height * sizeof(pico_stick::SpriteLine));
-    data = other.data;
 }
 
 void Sprite::setup_patches(DisplayDriver& disp) {
     assert(idx >= 0);
-    if (data == nullptr) return;
 
+    const uint32_t sprite_base_address = header.sprite_address() + 4 + 4 * (header.height >> 1);
     for (int i = 0; i < header.height; ++i) {
         int line_idx = y + i*v_scale;
         if (line_idx < 0 || line_idx >= disp.frame_data.config.v_length) continue;
@@ -63,18 +52,20 @@ void Sprite::setup_patches(DisplayDriver& disp) {
         }
 
         const int len = end - start;
-        uint8_t* const sprite_data_ptr = data + line.data_start + start_offset;
+        //uint8_t* const sprite_data_ptr = data + line.data_start + start_offset;
+        uint32_t sprite_address = sprite_base_address + line.data_start + start_offset;
 
         for (uint8_t i = 0; i < v_scale && line_idx < disp.frame_data.config.v_length; ++i) {
             auto* patch = disp.patches[line_idx++];
             int j = 0;
-            for (; patch->data && j < MAX_PATCHES_PER_LINE; ++j) {
+            for (; patch->address && j < MAX_PATCHES_PER_LINE; ++j) {
                 ++patch;
             }
             if (j == MAX_PATCHES_PER_LINE) {
                 continue;
             }
-            patch->data = sprite_data_ptr;
+            //patch->data = sprite_data_ptr;
+            patch->address = sprite_address;
             patch->offset = start;
             patch->len = len;
             patch->mode = blend_mode;
@@ -126,9 +117,9 @@ __always_inline static void blend_one_555(BlendMode mode, uint16_t* sprite_pixel
     }
 }
 
-__always_inline static void apply_blend_patch_555(const Sprite::BlendPatch& patch, uint8_t* frame_pixel_data, uint32_t* sprite_buffer, int dma_channel) {
-    uint16_t* sprite_pixel_ptr = (uint16_t*)patch.data;
-    uint16_t* const sprite_end_ptr = (uint16_t*)(patch.data + patch.len);
+__always_inline static void apply_blend_patch_555(const Sprite::BlendPatch& patch, uint8_t* frame_pixel_data, uint8_t* patch_data, uint32_t* sprite_buffer, int dma_channel) {
+    uint16_t* sprite_pixel_ptr = (uint16_t*)patch_data;
+    uint16_t* const sprite_end_ptr = (uint16_t*)(patch_data + patch.len);
     uint16_t* frame_pixel_ptr = (uint16_t*)((uint8_t*)frame_pixel_data + patch.offset);
 
     // Align sprite_pixel_ptr
@@ -154,7 +145,7 @@ __always_inline static void apply_blend_patch_555(const Sprite::BlendPatch& patc
 
     // Final pixel
     if ((uintptr_t)sprite_end_ptr & 3) {
-        blend_one_555(patch.mode, sprite_end_ptr - 1, (uint16_t*)((uint8_t*)frame_pixel_data + patch.offset) + (sprite_end_ptr - 1 - (uint16_t*)patch.data));
+        blend_one_555(patch.mode, sprite_end_ptr - 1, (uint16_t*)((uint8_t*)frame_pixel_data + patch.offset) + (sprite_end_ptr - 1 - (uint16_t*)patch_data));
     }
 
     if (sprite_pixel_ptr32 >= sprite_end_ptr32) {
@@ -278,9 +269,9 @@ __always_inline static void apply_blend_patch_555(const Sprite::BlendPatch& patc
     }
 }
 
-__always_inline static void apply_blend_patch_byte(const Sprite::BlendPatch& patch, uint8_t* frame_pixel_data, uint32_t* sprite_buffer, int dma_channel) {
-    uint8_t* sprite_pixel_ptr = (uint8_t*)patch.data;
-    uint8_t* const sprite_end_ptr = (uint8_t*)(patch.data + patch.len);
+__always_inline static void apply_blend_patch_byte(const Sprite::BlendPatch& patch, uint8_t* frame_pixel_data, uint8_t* patch_data, uint32_t* sprite_buffer, int dma_channel) {
+    uint8_t* sprite_pixel_ptr = (uint8_t*)patch_data;
+    uint8_t* const sprite_end_ptr = (uint8_t*)(patch_data + patch.len);
     uint8_t* frame_pixel_ptr = ((uint8_t*)frame_pixel_data + patch.offset);
     constexpr uint8_t alpha_mask = 0x01;
 
@@ -309,20 +300,20 @@ __always_inline static void apply_blend_patch_byte(const Sprite::BlendPatch& pat
     }
 }
 
-void __scratch_x("sprite_blend") Sprite::apply_blend_patch_555_x(const BlendPatch& patch, uint8_t* frame_pixel_data) {
-    apply_blend_patch_555(patch, frame_pixel_data, buffer_x, dma_channel_x);
+void __scratch_x("sprite_blend") Sprite::apply_blend_patch_555_x(const BlendPatch& patch, uint8_t* frame_pixel_data, uint8_t* patch_data) {
+    apply_blend_patch_555(patch, frame_pixel_data, patch_data, buffer_x, dma_channel_x);
 }
 
-void __scratch_y("sprite_blend") Sprite::apply_blend_patch_555_y(const BlendPatch& patch, uint8_t* frame_pixel_data) {
-    apply_blend_patch_555(patch, frame_pixel_data, buffer_y, dma_channel_y);
+void __scratch_y("sprite_blend") Sprite::apply_blend_patch_555_y(const BlendPatch& patch, uint8_t* frame_pixel_data, uint8_t* patch_data) {
+    apply_blend_patch_555(patch, frame_pixel_data, patch_data, buffer_y, dma_channel_y);
 }
 
-void __scratch_x("sprite_blend") Sprite::apply_blend_patch_byte_x(const BlendPatch& patch, uint8_t* frame_pixel_data) {
-    apply_blend_patch_byte(patch, frame_pixel_data, buffer_x, dma_channel_x);
+void __scratch_x("sprite_blend") Sprite::apply_blend_patch_byte_x(const BlendPatch& patch, uint8_t* frame_pixel_data, uint8_t* patch_data) {
+    apply_blend_patch_byte(patch, frame_pixel_data, patch_data, buffer_x, dma_channel_x);
 }
 
-void __scratch_y("sprite_blend") Sprite::apply_blend_patch_byte_y(const BlendPatch& patch, uint8_t* frame_pixel_data) {
-    apply_blend_patch_byte(patch, frame_pixel_data, buffer_y, dma_channel_y);
+void __scratch_y("sprite_blend") Sprite::apply_blend_patch_byte_y(const BlendPatch& patch, uint8_t* frame_pixel_data, uint8_t* patch_data) {
+    apply_blend_patch_byte(patch, frame_pixel_data, patch_data, buffer_y, dma_channel_y);
 }
 
 void Sprite::init() {
@@ -355,10 +346,4 @@ void Sprite::init() {
         0,
         false
     );
-
-    clear_sprite_data();
-}
-
-void Sprite::clear_sprite_data() {
-    sprite_data_end = sprite_data_buffer;
 }

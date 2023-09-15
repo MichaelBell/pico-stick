@@ -92,9 +92,9 @@ private:
     };
 
     void main_loop();
-    void prepare_scanline_core0(int line_number, uint32_t *pixel_data, uint32_t *tmds_buf, int scanline_mode);
-    void prepare_scanline_core1(int line_number, uint32_t *pixel_data, uint32_t *tmds_buf, int scanline_mode);
-    void read_two_lines(uint idx);
+    void prepare_scanline_core0(int line_number, uint32_t *pixel_data, uint32_t *tmds_buf, int scanline_mode, uint32_t* patch_data);
+    void prepare_scanline_core1(int line_number, uint32_t *pixel_data, uint32_t *tmds_buf, int scanline_mode, uint32_t* patch_data);
+    void read_two_lines(uint idx, int line_number);
     void setup_palette();
     void clear_patches();
     void update_sprites();
@@ -121,10 +121,11 @@ private:
     // Patches that require blending, done by CPU
     Sprite::BlendPatch patches[MAX_FRAME_HEIGHT][MAX_PATCHES_PER_LINE];
 
-    // Must be long enough to accept two lines plus one padding word at maximum data length and maximum width
-    uint32_t pixel_data[NUM_LINE_BUFFERS / 2][((MAX_FRAME_WIDTH + 1) * 3) / 2];
+    // Must be long enough to accept two lines at maximum data length and maximum width, plus patches for sprites (not supported in 24bpp mode)
+    static constexpr uint32_t PIXEL_DATA_LEN = std::max((MAX_FRAME_WIDTH * 3) / 2, MAX_FRAME_WIDTH + MAX_PATCHES_PER_LINE * MAX_SPRITE_WIDTH);
+    uint32_t pixel_data[NUM_LINE_BUFFERS / 2][PIXEL_DATA_LEN];
     uint32_t* pixel_ptr[NUM_LINE_BUFFERS];
-    uint32_t line_lengths[2];
+    uint32_t* sprite_data_ptr[NUM_LINE_BUFFERS];
     int8_t line_mode[NUM_LINE_BUFFERS];
 
     Sprite sprites[MAX_SPRITES];
