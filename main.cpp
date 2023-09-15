@@ -8,6 +8,7 @@
 #include "hardware/gpio.h"
 #include "hardware/irq.h"
 #include "hardware/pwm.h"
+#include "hardware/structs/usb.h"
 #include "hardware/watchdog.h"
 #include "pico/bootrom.h"
 #include "hardware/structs/pads_qspi.h"
@@ -71,11 +72,13 @@ void handle_i2c_reg_write(uint8_t reg, uint8_t end_reg, uint8_t* regs) {
 
     if (REG_WRITTEN(0xC9)) {
         sio_hw->gpio_hi_out = regs[0xC9] & 0x3F;
+        hw_write_masked(&usb_hw->phy_direct, (regs[0xC9] & 0xC0) << 4, 0xC00);
     }
     if (REG_WRITTEN(0xCA)) {
         sio_hw->gpio_hi_oe = regs[0xCA] & 0x3F;
+        hw_write_masked(&usb_hw->phy_direct, (regs[0xCA] & 0xC0) << 2, 0x300);
     }
-    if (REG_WRITTEN2(0xCB, 0xCC)) {
+    if (REG_WRITTEN2(0xCB, 0xCC)) {  // Pull up, pull down
         constexpr uint8_t gpio_to_pad_map[] = { 0, 2, 3, 4, 5, 1 };
         for (uint i = 0; i < NUM_QSPI_GPIOS; ++i) {
             uint32_t val = 0x62;
@@ -83,6 +86,11 @@ void handle_i2c_reg_write(uint8_t reg, uint8_t end_reg, uint8_t* regs) {
             if (regs[0xCC] & (1 << gpio_to_pad_map[i])) val |= 4;
             pads_qspi_hw->io[i] = val;
         }
+        uint32_t usb_pulls = ((regs[0xCB] & 0x80) ? 0x20 : 0) |
+                             ((regs[0xCB] & 0x40) ? 0x02 : 0) |
+                             ((regs[0xCC] & 0x80) ? 0x40 : 0) |
+                             ((regs[0xCC] & 0x40) ? 0x04 : 0);
+        hw_write_masked(&usb_hw->phy_direct, usb_pulls, 0x66);
     }
 
     if (REG_WRITTEN(0xD3)) {
@@ -150,7 +158,7 @@ void set_i2c_reg_data_for_frame(uint8_t* regs, const DisplayDriver::Diags& diags
     regs -= 0xC0;
 
     regs[0xC0] = gpio_get_all() >> 23;
-    regs[0xC8] = sio_hw->gpio_hi_in;
+    regs[0xC8] = sio_hw->gpio_hi_in | ((usb_hw->phy_direct & 0x60000) >> 11);
 
     regs[0xD0] = (diags.vsync_time * 200) / diags.available_vsync_time;
     regs[0xD1] = ((diags.scanline_total_prep_time[0] + diags.scanline_total_prep_time[1]) * 100) / diags.available_total_scanline_time;
@@ -214,13 +222,17 @@ void start_temp_sense(uint8_t* regs) {
 
     // Transfer "forever" - should work for 2^32 / (48MHz / 65535) = 67.8 days
     dma_channel_configure(dma_chan, &cfg,
-        &regs[0xCE],    // dst
+        &regs[0xC6],    // dst
         &adc_hw->fifo,  // src
         0xFFFFFFFF,     // transfer count
         true            // start immediately
     );
 
     adc_run(true);
+}
+
+void configure_usb_gpio() {
+    usb_hw->phy_direct_override = 0x11FC;
 }
 
 int main() {
@@ -256,6 +268,8 @@ int main() {
         pwm_init(PIN_LED_PWM_SLICE_NUM, &config, true);
         pwm_set_gpio_level(PIN_LED, 0);
     }
+
+    configure_usb_gpio();
 
     uint8_t* regs = i2c_slave_if::init(handle_i2c_sprite_write, handle_i2c_reg_write);
     setup_i2c_reg_data(regs);
