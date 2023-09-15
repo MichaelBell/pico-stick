@@ -54,6 +54,7 @@ class Sprite {
         static void apply_blend_patch_byte_y(const BlendPatch& patch, uint8_t* frame_pixel_data, uint8_t* patch_data);
 
         static void init();
+        static void clear_sprite_data();
 
     private:
         int16_t x;
@@ -64,6 +65,7 @@ class Sprite {
 
         pico_stick::SpriteHeader header;
         pico_stick::SpriteLine lines[MAX_SPRITE_HEIGHT];
+        uint8_t* data = nullptr;
 
         static int dma_channel_x;
         static int dma_channel_y;

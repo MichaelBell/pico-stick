@@ -415,10 +415,11 @@ void DisplayDriver::prepare_scanline_core0(int line_number, uint32_t* pixel_data
     int i;
     for (i = 0; i < MAX_PATCHES_PER_LINE; ++i) {
         if (patches[line_number][i].address) {
-            if (scanline_mode & (RGB888 | PALETTE)) Sprite::apply_blend_patch_byte_x(patches[line_number][i], (uint8_t*)pixel_data, (uint8_t*)patch_data);
-            else Sprite::apply_blend_patch_555_y(patches[line_number][i], (uint8_t*)pixel_data, (uint8_t*)patch_data);
+            uint8_t* sprite_patch_data = patches[line_number][i].address < 0x10000000 ? (uint8_t*)patch_data : (uint8_t*)patches[line_number][i].address;
+            if (scanline_mode & (RGB888 | PALETTE)) Sprite::apply_blend_patch_byte_y(patches[line_number][i], (uint8_t*)pixel_data, sprite_patch_data);
+            else Sprite::apply_blend_patch_555_y(patches[line_number][i], (uint8_t*)pixel_data, sprite_patch_data);
+            if (patches[line_number][i].address < 0x10000000) patch_data += (patches[line_number][i].len + 3) >> 2;
             patches[line_number][i].address = 0;
-            patch_data += (patches[line_number][i].len + 3) >> 2;
         }
         else {
             break;
@@ -444,10 +445,11 @@ void DisplayDriver::prepare_scanline_core1(int line_number, uint32_t* pixel_data
     int i;
     for (i = 0; i < MAX_PATCHES_PER_LINE; ++i) {
         if (patches[line_number][i].address) {
-            if (scanline_mode & (RGB888 | PALETTE)) Sprite::apply_blend_patch_byte_x(patches[line_number][i], (uint8_t*)pixel_data, (uint8_t*)patch_data);
-            else Sprite::apply_blend_patch_555_x(patches[line_number][i], (uint8_t*)pixel_data, (uint8_t*)patch_data);
+            uint8_t* sprite_patch_data = patches[line_number][i].address < 0x10000000 ? (uint8_t*)patch_data : (uint8_t*)patches[line_number][i].address;
+            if (scanline_mode & (RGB888 | PALETTE)) Sprite::apply_blend_patch_byte_x(patches[line_number][i], (uint8_t*)pixel_data, sprite_patch_data);
+            else Sprite::apply_blend_patch_555_x(patches[line_number][i], (uint8_t*)pixel_data, sprite_patch_data);
+            if (patches[line_number][i].address < 0x10000000) patch_data += (patches[line_number][i].len + 3) >> 2;
             patches[line_number][i].address = 0;
-            patch_data += (patches[line_number][i].len + 3) >> 2;
         }
         else {
             break;
@@ -498,7 +500,7 @@ void DisplayDriver::read_two_lines(uint idx, int line_number) {
         line_2_sprite_offset = total_patch_len;
 
         for (int j = 0; j < MAX_PATCHES_PER_LINE; ++j) {
-            if (patches[line_number + i][j].address) {
+            if (patches[line_number + i][j].address && patches[line_number + i][j].address < 0x10000000) {
                 addresses[patch_idx] = patches[line_number + i][j].address;
 
                 uint32_t patch_len_in_words = (patches[line_number + i][j].len + 3) >> 2;
@@ -528,6 +530,7 @@ void DisplayDriver::setup_palette() {
 }
 
 void DisplayDriver::update_sprites() {
+    Sprite::clear_sprite_data();
     for (int i = 0; i < MAX_SPRITES; ++i) {
         int16_t sprite_table_idx = sprites[i].get_sprite_table_idx();
         if (sprite_table_idx < 0) continue;
