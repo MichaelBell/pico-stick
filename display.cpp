@@ -103,8 +103,6 @@ void DisplayDriver::run_core1() {
             prepare_scanline_core1(line_counter, colourbuf, tmdsbuf, lmode);
             multicore_fifo_push_blocking(0);
         }
-
-        // dvi_stop() - needs implementing
     }
     __builtin_unreachable();
 }
@@ -112,29 +110,36 @@ void DisplayDriver::run_core1() {
 void DisplayDriver::init() {
     //ram.init();
 
-    gpio_init(PIN_VSYNC);
-    gpio_put(PIN_VSYNC, 0);
-    gpio_set_dir(PIN_VSYNC, GPIO_OUT);
+    if (!ever_inited) {
+        gpio_init(PIN_VSYNC);
+        gpio_put(PIN_VSYNC, 0);
+        gpio_set_dir(PIN_VSYNC, GPIO_OUT);
 
-    // Setup TMDS symbol LUTs
-    tmds_double_encode_setup_default_lut(tmds_15bpp_lut);
-    memcpy(tmds_palette_luts + (PALETTE_SIZE * PALETTE_SIZE * 6), tmds_15bpp_lut, PALETTE_SIZE * PALETTE_SIZE * 2);
-    memcpy(tmds_palette_luts + (PALETTE_SIZE * PALETTE_SIZE * 10), tmds_15bpp_lut, PALETTE_SIZE * PALETTE_SIZE * 2);
+        // Setup TMDS symbol LUTs
+        tmds_double_encode_setup_default_lut(tmds_15bpp_lut);
+        memcpy(tmds_palette_luts + (PALETTE_SIZE * PALETTE_SIZE * 6), tmds_15bpp_lut, PALETTE_SIZE * PALETTE_SIZE * 2);
+        memcpy(tmds_palette_luts + (PALETTE_SIZE * PALETTE_SIZE * 10), tmds_15bpp_lut, PALETTE_SIZE * PALETTE_SIZE * 2);
 
-    dvi_init(&dvi0, next_striped_spin_lock_num(), next_striped_spin_lock_num());
-    for (int i = 0; i < NUM_TMDS_BUFFERS; ++i) {
-        void* bufptr = (void*)&tmds_buffers[i * 3 * MAX_FRAME_WIDTH / DVI_SYMBOLS_PER_WORD];
-        queue_add_blocking_u32(&dvi0.q_tmds_free, &bufptr);
-    }
-	sem_init(&dvi_start_sem, 0, 1);
-	hw_set_bits(&bus_ctrl_hw->priority, BUSCTRL_BUS_PRIORITY_PROC1_BITS);
-
-    Sprite::init();
-
-    for (int i = 0; i < MAX_FRAME_HEIGHT; ++i) {
-        for (int j = 0; j < MAX_PATCHES_PER_LINE; ++j) {
-            patches[i][j].data = nullptr;
+        dvi_init(&dvi0, next_striped_spin_lock_num(), next_striped_spin_lock_num());
+        for (int i = 0; i < NUM_TMDS_BUFFERS; ++i) {
+            void* bufptr = (void*)&tmds_buffers[i * 3 * MAX_FRAME_WIDTH / DVI_SYMBOLS_PER_WORD];
+            queue_add_blocking_u32(&dvi0.q_tmds_free, &bufptr);
         }
+        sem_init(&dvi_start_sem, 0, 1);
+        hw_set_bits(&bus_ctrl_hw->priority, BUSCTRL_BUS_PRIORITY_PROC1_BITS);
+
+        Sprite::init();
+
+        for (int i = 0; i < MAX_FRAME_HEIGHT; ++i) {
+            for (int j = 0; j < MAX_PATCHES_PER_LINE; ++j) {
+                patches[i][j].data = nullptr;
+            }
+        }
+
+        ever_inited = true;
+    }
+    else {
+        dvi_setup(&dvi0);
     }
 
     // This calculation shouldn't overflow for any resolution we could plausibly support.
@@ -182,7 +187,7 @@ void DisplayDriver::run() {
     bool first_frame = true;
     uint heartbeat = 9;
     //int frame_address_dir = 4;
-    while (true) {
+    while (!stop_display) {
         if (heartbet_led) {
             uint val;
             if (heartbeat < 32) val = heartbeat << 3;
@@ -340,6 +345,13 @@ void DisplayDriver::run() {
             first_frame = false;
         }
     }
+
+    dvi_stop(&dvi0);
+    sleep_ms(1);
+
+    multicore_reset_core1();
+
+    stop_display = false;
 }
 
 void DisplayDriver::main_loop() {

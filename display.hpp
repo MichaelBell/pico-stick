@@ -82,6 +82,8 @@ public:
 
     void enable_heartbeat(bool enable) { heartbet_led = enable; }
 
+    void stop() { stop_display = true; }
+
 private:
     friend class Sprite;
 
@@ -146,4 +148,10 @@ private:
 
     // Whether to output heartbeat LED
     bool heartbet_led = true;
+
+    // Whether to stop
+    volatile bool stop_display = false;
+
+    // Whether we have been initialized
+    bool ever_inited = false;
 };

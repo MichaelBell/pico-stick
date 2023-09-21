@@ -21,3 +21,4 @@ constexpr int PIN_I2S_DATA = 26;
 constexpr int PIN_I2S_BCLK = 27;
 constexpr int PIN_I2S_LRCLK = 28;
 constexpr int PIN_ADC = 29;
+constexpr int PIN_ADC_PWM_SLICE_NUM = 6;

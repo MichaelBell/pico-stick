@@ -70,6 +70,34 @@ void handle_i2c_reg_write(uint8_t reg, uint8_t end_reg, uint8_t* regs) {
         }
     }
 
+    if (REG_WRITTEN(0xC2)) {
+        if (regs[0xC2] < 4) {
+            gpio_set_dir(PIN_ADC, GPIO_IN);
+            gpio_set_pulls(PIN_ADC, regs[0xC2] & 0x1, regs[0xC2] & 0x2);
+            gpio_set_input_enabled(PIN_ADC, true);
+            gpio_set_function(PIN_LED, GPIO_FUNC_SIO);
+        } else if (regs[0xC2] == 4) {
+            gpio_put(PIN_ADC, regs[0xC3]);
+            gpio_set_dir(PIN_ADC, GPIO_OUT);
+            gpio_set_input_enabled(PIN_ADC, true);
+            gpio_set_function(PIN_LED, GPIO_FUNC_SIO);
+        } else if (regs[0xC2] == 5) {
+            pwm_config config = pwm_get_default_config();
+            pwm_config_set_clkdiv(&config, 4.f);
+            pwm_config_set_wrap(&config, 254);
+            pwm_init(PIN_ADC_PWM_SLICE_NUM, &config, true);
+            pwm_set_gpio_level(PIN_ADC, regs[0xC3]);
+            gpio_set_input_enabled(PIN_ADC, true);
+            gpio_set_function(PIN_ADC, GPIO_FUNC_PWM);
+        } else if (regs[0xC2] == 6) {
+            adc_gpio_init(PIN_ADC);
+        }
+    }
+    if (REG_WRITTEN(0xC3)) {
+        if (regs[0xC2] == 4) gpio_put(PIN_ADC, regs[0xC3]);
+        else if (regs[0xC2] == 5) pwm_set_gpio_level(PIN_ADC, regs[0xC3]);
+    }
+
     if (REG_WRITTEN(0xC9)) {
         sio_hw->gpio_hi_out = regs[0xC9] & 0x3F;
         hw_write_masked(&usb_hw->phy_direct, (regs[0xC9] & 0xC0) << 4, 0xC00);
@@ -130,12 +158,8 @@ void handle_i2c_reg_write(uint8_t reg, uint8_t end_reg, uint8_t* regs) {
     }
     if (REG_WRITTEN(0xFF)) {
         if (regs[0xFF] == 0x01) {
-            printf("Resetting\n");
-            watchdog_reboot(0x20000001, 0x15004000, 0);
-        }
-        if (regs[0xFF] == 0x02) {
-            printf("Resetting to DFU mode\n");
-            reset_usb_boot(0, 0);
+            //printf("Stopping\n");
+            display.stop();
         }
     }
 
@@ -157,8 +181,9 @@ void handle_i2c_sprite_write(uint8_t sprite, uint8_t end_sprite, uint8_t* sprite
 void set_i2c_reg_data_for_frame(uint8_t* regs, const DisplayDriver::Diags& diags) {
     regs -= 0xC0;
 
-    regs[0xC0] = gpio_get_all() >> 23;
-    regs[0xC8] = sio_hw->gpio_hi_in | ((usb_hw->phy_direct & 0x60000) >> 11);
+    // To reduce latency these are now handled directly in the I2C interface
+    //regs[0xC0] = gpio_get_all() >> 23;
+    //regs[0xC8] = sio_hw->gpio_hi_in | ((usb_hw->phy_direct & 0x60000) >> 11);
 
     regs[0xD0] = (diags.vsync_time * 200) / diags.available_vsync_time;
     regs[0xD1] = ((diags.scanline_total_prep_time[0] + diags.scanline_total_prep_time[1]) * 100) / diags.available_total_scanline_time;
@@ -279,38 +304,34 @@ int main() {
 
     read_edid();
 
-    // Wait for I2C to indicate we should start
-    while (regs[0xFD] == 0) __wfe();
-    display.init();
-    display.diags_callback = handle_display_diags_callback;
-    printf("DV Display Driver Initialised\n");
+    while(true) {
+        // Wait for I2C to indicate we should start
+        while (regs[0xFD] == 0) __wfe();
+        display.init();
+        display.diags_callback = handle_display_diags_callback;
+        printf("DV Display Driver Initialised\n");
 
-    // Deinit I2C before adjusting clock
-    i2c_slave_if::deinit();
+        // Deinit I2C before adjusting clock
+        i2c_slave_if::deinit();
 
-    // Set voltage to value from I2C register - in future this might have been altered since boot.
-    uint vreg_select = get_vreg_select_for_voltage(i2c_slave_if::get_high_reg_table()[0xDE - 0xC0]);
-    hw_write_masked(&vreg_and_chip_reset_hw->vreg, vreg_select << VREG_AND_CHIP_RESET_VREG_VSEL_LSB, VREG_AND_CHIP_RESET_VREG_VSEL_BITS);
-	sleep_ms(10);
+        // Set voltage to value from I2C register - in future this might have been altered since boot.
+        uint vreg_select = get_vreg_select_for_voltage(i2c_slave_if::get_high_reg_table()[0xDE - 0xC0]);
+        hw_write_masked(&vreg_and_chip_reset_hw->vreg, vreg_select << VREG_AND_CHIP_RESET_VREG_VSEL_LSB, VREG_AND_CHIP_RESET_VREG_VSEL_BITS);
+        sleep_ms(10);
 
-	set_sys_clock_khz(display.get_clock_khz(), true);
+        set_sys_clock_khz(display.get_clock_khz(), true);
 
-	stdio_init_all();
-    display.get_ram().adjust_clock();
+        stdio_init_all();
+        display.get_ram().adjust_clock();
 
-    // Reinit I2C now clock is set.
-    i2c_slave_if::init(handle_i2c_sprite_write, handle_i2c_reg_write);
+        // Reinit I2C now clock is set.
+        i2c_slave_if::init(handle_i2c_sprite_write, handle_i2c_reg_write);
 
-    printf("DV Driver: Clock configured\n");
+        printf("DV Driver: Clock configured\n");
 
-    display.run();
+        display.run();
 
-    // If run ever exits, the magic number in the RAM was wrong.
-    // For now we reboot if that happens
-    printf("DV Driver: Display failed\n");
-
-    printf("DV Driver: Resetting\n");
-    watchdog_reboot(0x20000001, 0x15004000, 0);
-    
-    while (true);
+        printf("DV Driver: Display stopped\n");
+        regs[0xFD] = 0;
+    }
 }

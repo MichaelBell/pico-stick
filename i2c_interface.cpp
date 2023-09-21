@@ -3,6 +3,8 @@
 #include "i2c_fifo.h"
 #include "i2c_slave.h"
 #include "pico/stdlib.h"
+#include "hardware/gpio.h"
+#include "hardware/structs/usb.h"
 
 #include "constants.hpp"
 #include "pins.hpp"
@@ -19,6 +21,8 @@ namespace {
 
     constexpr uint I2C_HIGH_REG_BASE = 0xC0;
     constexpr uint I2C_NUM_HIGH_REGS = 0x40;
+    constexpr uint I2C_GPIO_INPUT_REG = 0xC0;
+    constexpr uint I2C_GPIO_HI_INPUT_REG = 0xC8;
     constexpr uint I2C_EDID_REGISTER = 0xED;
 
     // Callback made after an I2C write to high registers is complete.  It gives the first register written,
@@ -87,6 +91,12 @@ namespace {
             } else if (cxt->cur_register == I2C_EDID_REGISTER) {
                 i2c_write_byte(i2c, get_edid_data()[cxt->access_idx]);
                 if (++cxt->access_idx == 128) cxt->access_idx = 0;
+            } else if (cxt->cur_register == I2C_GPIO_INPUT_REG) {
+                i2c_write_byte(i2c, gpio_get_all() >> 23);
+                ++cxt->cur_register;
+            } else if (cxt->cur_register == I2C_GPIO_HI_INPUT_REG) {
+                i2c_write_byte(i2c, sio_hw->gpio_hi_in | ((usb_hw->phy_direct & 0x60000) >> 11));
+                ++cxt->cur_register;
             } else if (cxt->cur_register >= I2C_HIGH_REG_BASE && cxt->cur_register < I2C_HIGH_REG_BASE + I2C_NUM_HIGH_REGS) {
                 i2c_write_byte(i2c, cxt->high_regs[cxt->cur_register - I2C_HIGH_REG_BASE]);
                 ++cxt->cur_register;
