@@ -136,6 +136,7 @@ namespace i2c_slave_if {
 
         memset(context.sprite_mem, 0xFF, MAX_SPRITES * I2C_SPRITE_DATA_LEN);
         memset(context.high_regs, 0, I2C_NUM_HIGH_REGS);
+        context.got_register = false;
 
         gpio_init(I2C_SLAVE_SDA_PIN);
         gpio_set_function(I2C_SLAVE_SDA_PIN, GPIO_FUNC_I2C);

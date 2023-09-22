@@ -56,6 +56,7 @@ bool DisplayDriver::set_res(pico_stick::Resolution res)
     if (res <= RESOLUTION_720x576) {
         dvi0.timing = normal_modes[(int)res];
         current_res = res;
+        printf("Set res %d\n", res);
         return true;
     }
 
@@ -149,12 +150,19 @@ void DisplayDriver::init() {
                                   scanline_pixels) / pixel_clk_khz;
     diags.available_total_scanline_time = (1000u * dvi0.timing->v_active_lines * scanline_pixels) / pixel_clk_khz;
     diags.available_time_per_scanline = (1000u * scanline_pixels) / pixel_clk_khz;
+    printf("%dx%d active area\n", dvi0.timing->h_active_pixels, dvi0.timing->v_active_lines);
     printf("Available VSYNC time: %luus\n", diags.available_vsync_time);
     printf("Available time for all active scanlines: %luus\n", diags.available_total_scanline_time);
     printf("Available time per scanline: %luus\n", diags.available_time_per_scanline);
 }
 
 void DisplayDriver::run() {
+    if (!frame_data.read_headers()) {
+        printf("Failed to read header\n");
+        return;
+    }
+    printf("Configured display size %dx%d, v rep=%d\n", frame_data.config.h_length, frame_data.config.v_length, frame_data.config.v_repeat);
+
 	multicore_launch_core1(core1_main);
     multicore_fifo_push_blocking(uint32_t(this));
 
