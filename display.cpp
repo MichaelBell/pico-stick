@@ -162,6 +162,7 @@ void DisplayDriver::run() {
         return;
     }
     printf("Configured display size %dx%d, v rep=%d\n", frame_data.config.h_length, frame_data.config.v_length, frame_data.config.v_repeat);
+    dvi0.vertical_repeat = frame_data.config.v_repeat;
 
 	multicore_launch_core1(core1_main);
     multicore_fifo_push_blocking(uint32_t(this));
@@ -358,6 +359,10 @@ void DisplayDriver::run() {
     sleep_ms(1);
 
     multicore_reset_core1();
+
+    if (heartbet_led) {
+        pwm_set_gpio_level(PIN_LED, 0);
+    }
 
     stop_display = false;
 }
