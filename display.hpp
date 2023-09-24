@@ -39,7 +39,12 @@ public:
     void clear_sprite(int8_t i);
 
     void set_frame_data_address_offset(int idx, int offset) {
-        next_frame_data_address_offset[idx] = offset;
+        next_frame_scroll[idx].start_address_offset = offset;
+    }
+
+    void set_scroll_wrap(int idx, int16_t position, int16_t offset) {
+        next_frame_scroll[idx].wrap_position = position;
+        next_frame_scroll[idx].wrap_offset = offset + position;
     }
 
     // Override the value of frame_counter, used to switch frames if the frame divider is 0
@@ -114,8 +119,15 @@ private:
     int line_counter = 0;
     int palette_idx = 0;
 
-    int frame_data_address_offset[NUM_SCROLL_OFFSETS] = {0};
-    int next_frame_data_address_offset[NUM_SCROLL_OFFSETS] = {0};
+    struct ScrollConfig {
+        // Everything here is in bytes
+        int start_address_offset = 0;
+        int16_t wrap_position = 0;
+        int16_t wrap_offset = 0;  // This is the offset from the start of the line.
+    };
+
+    ScrollConfig frame_scroll[NUM_SCROLL_GROUPS] = {0};
+    ScrollConfig next_frame_scroll[NUM_SCROLL_GROUPS] = {0};
 
     // Must be as long as the greatest supported frame height.
     pico_stick::FrameTableEntry* frame_table;
@@ -126,7 +138,6 @@ private:
     // Must be long enough to accept two lines plus one padding word at maximum data length and maximum width
     uint32_t pixel_data[NUM_LINE_BUFFERS / 2][((MAX_FRAME_WIDTH + 1) * 3) / 2];
     uint32_t* pixel_ptr[NUM_LINE_BUFFERS];
-    uint32_t line_lengths[2];
     int8_t line_mode[NUM_LINE_BUFFERS];
 
     Sprite sprites[MAX_SPRITES];

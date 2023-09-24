@@ -23,7 +23,7 @@ namespace {
     constexpr uint I2C_NUM_HIGH_REGS = 0x40;
     constexpr uint I2C_GPIO_INPUT_REG = 0xC0;
     constexpr uint I2C_GPIO_HI_INPUT_REG = 0xC8;
-    constexpr uint I2C_EDID_REGISTER = 0xED;
+    constexpr uint I2C_EDID_REGISTER = 0xFB;
 
     // Callback made after an I2C write to high registers is complete.  It gives the first register written,
     // The last register written, and a pointer to the memory representing all high registers (from 0xC0).

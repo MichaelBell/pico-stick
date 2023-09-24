@@ -128,24 +128,31 @@ void handle_i2c_reg_write(uint8_t reg, uint8_t end_reg, uint8_t* regs) {
         display.clear_late_scanlines();
     }
 
-    if (REG_WRITTEN(0xEE)) {
-        display.set_palette_idx(regs[0xEE]);
-    }
-
-    if (REG_WRITTEN(0xEF)) {
-        display.set_frame_counter(regs[0xEF]);
-    }
-
     for (int i = 0; i < 3; ++i) {
-        if (REG_WRITTEN2(0xF0 + 4*i, 0xF3 + 4*i)) {
-            uint8_t* reg_base = &regs[0xF0 + 4*i];
-            int offset = (reg_base[3] << 24) |
-                        (reg_base[2] << 16) |
-                        (reg_base[1] << 8) |
+        if (REG_WRITTEN2(0xE0 + 8*i, 0xE7 + 8*i)) {
+            uint8_t* reg_base = &regs[0xE0 + 8*i];
+            int16_t wrap_position = (reg_base[1] << 8) |
                         (reg_base[0]);
+            int16_t wrap_offset = (reg_base[3] << 8) |
+                        (reg_base[2]);
+            display.set_scroll_wrap(i+1, wrap_position, wrap_offset);
+
+            int offset = (reg_base[7] << 24) |
+                        (reg_base[6] << 16) |
+                        (reg_base[5] << 8) |
+                        (reg_base[4]);
             display.set_frame_data_address_offset(i+1, offset);
         }
     }
+
+    if (REG_WRITTEN(0xF8)) {
+        display.set_palette_idx(regs[0xF8]);
+    }
+
+    if (REG_WRITTEN(0xF9)) {
+        display.set_frame_counter(regs[0xF9]);
+    }
+
     if (REG_WRITTEN(0xFC)) {
         if (regs[0xFD] == 0) { // If not started, can change mode
             display.set_res((pico_stick::Resolution)regs[0xFC]);

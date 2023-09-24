@@ -135,7 +135,7 @@ namespace pimoroni {
         else {
             // Must always reset the cmd buffer DMA because writes use the same DREQ
             setup_cmd_buffer_dma();
-            uint32_t* cmd_buf = add_read_to_cmd_buffer(multi_read_cmd_buffer, addr, len_in_words);
+            uint32_t* cmd_buf = add_read_to_cmd_buffer(multi_read_cmd_buffer, addr, len_in_words << 2);
             dma_channel_transfer_from_buffer_now(read_cmd_dma_channel, multi_read_cmd_buffer, cmd_buf - multi_read_cmd_buffer);
         }
     }
@@ -148,7 +148,7 @@ namespace pimoroni {
             cmd_buf = add_read_to_cmd_buffer(cmd_buf, addresses[i], lengths[i]);
         }
 
-        start_read(read_buf, total_len, chain_channel);
+        start_read(read_buf, total_len >> 2, chain_channel);
         setup_cmd_buffer_dma();
 
         dma_channel_transfer_from_buffer_now(read_cmd_dma_channel, multi_read_cmd_buffer, cmd_buf - multi_read_cmd_buffer);
@@ -192,8 +192,8 @@ namespace pimoroni {
         );
     }
 
-    uint32_t* APS6404::add_read_to_cmd_buffer(uint32_t* cmd_buf, uint32_t addr, uint32_t len_in_words) {
-        int32_t len_remaining = len_in_words << 2;
+    uint32_t* APS6404::add_read_to_cmd_buffer(uint32_t* cmd_buf, uint32_t addr, uint32_t len_in_bytes) {
+        int32_t len_remaining = len_in_bytes;
         uint32_t len = std::min((PAGE_SIZE - (addr & (PAGE_SIZE - 1))), (uint32_t)len_remaining);
 
         while (true) {

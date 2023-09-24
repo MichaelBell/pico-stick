@@ -256,8 +256,8 @@ void DisplayDriver::run() {
         update_sprites();
 
         // Update offsets
-        for (int i = 1; i < NUM_SCROLL_OFFSETS; ++i) {
-            frame_data_address_offset[i] = next_frame_data_address_offset[i];
+        for (int i = 1; i < NUM_SCROLL_GROUPS; ++i) {
+            frame_scroll[i] = next_frame_scroll[i];
         }
 
         // Read first 2 lines
@@ -488,22 +488,31 @@ void DisplayDriver::prepare_scanline_core1(int line_number, uint32_t* pixel_data
 }    
 
 void DisplayDriver::read_two_lines(uint idx) {
-    uint32_t addresses[2];
+    uint32_t addresses[4];
+    uint32_t read_lengths[4];
     uint32_t* ptr = pixel_data[idx];
+    int address_idx = 0;
 
     for (int i = 0; i < 2; ++i) {
-        FrameTableEntry& entry = frame_table[line_counter + i];
-        uint32_t extra_line_length = 0;
-        uint32_t addr = entry.line_address() + frame_data_address_offset[entry.frame_offset_idx()];
-        addresses[i] = addr;
+        const FrameTableEntry& entry = frame_table[line_counter + i];
+        const ScrollConfig& scroll_config = frame_scroll[entry.frame_offset_idx()];
+        uint32_t addr = entry.line_address() + scroll_config.start_address_offset;
+        addresses[address_idx] = addr;
         pixel_ptr[idx * 2 + i] = ptr;
 
         const bool double_pixels = (entry.h_repeat() == 2);
         uint32_t line_length = frame_data.config.h_length * get_pixel_data_len(entry.line_mode());
-        if (double_pixels) line_length >>= 3;
-        else line_length >>= 2;
-        ptr += line_length;
-        line_lengths[i] = line_length + extra_line_length;
+        if (double_pixels) line_length >>= 1;
+        ptr += line_length >> 2;
+
+        if (scroll_config.wrap_position > 0) {
+            read_lengths[address_idx++] = scroll_config.wrap_position;
+            addresses[address_idx] = addr + scroll_config.wrap_offset;
+            read_lengths[address_idx++] = line_length - scroll_config.wrap_position;
+        }
+        else {
+            read_lengths[address_idx++] = line_length;
+        }
         
         int8_t lmode = 0;
         if (double_pixels) lmode |= DOUBLE_PIXELS;
@@ -512,7 +521,7 @@ void DisplayDriver::read_two_lines(uint idx) {
         line_mode[idx * 2 + i] = lmode;
     }
 
-    ram.multi_read(addresses, line_lengths, 2, pixel_data[idx]);
+    ram.multi_read(addresses, read_lengths, address_idx, pixel_data[idx]);
 }
 
 void DisplayDriver::setup_palette() {
