@@ -2,6 +2,7 @@
 
 #include <stdint.h>
 #include "hardware/pio.h"
+#include "hardware/dma.h"
 
 namespace pimoroni {
     class APS6404 {
@@ -43,7 +44,7 @@ namespace pimoroni {
 
         private:
             void start_read(uint32_t* read_buf, uint32_t total_len_in_words, int chain_channel = -1);
-            void setup_cmd_buffer_dma(bool clear = false);
+            void setup_dma_config();
             uint32_t* add_read_to_cmd_buffer(uint32_t* cmd_buf, uint32_t addr, uint32_t len_in_words);
 
             uint pin_csn;  // CSn, SCK must be next pin after CSn
@@ -56,6 +57,9 @@ namespace pimoroni {
 
             uint dma_channel;
             uint read_cmd_dma_channel;
+
+            dma_channel_config write_config;
+            dma_channel_config read_config;
 
             static constexpr int MULTI_READ_MAX_PAGES = 128;
             uint32_t multi_read_cmd_buffer[3 * MULTI_READ_MAX_PAGES];
