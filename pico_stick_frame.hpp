@@ -59,9 +59,9 @@ namespace pico_stick {
     struct FrameTableEntry {
         uint32_t entry;
 
-        uint32_t frame_offset_idx() const { return (entry >> 30); }
-        LineMode line_mode() const { return LineMode((entry >> 28) & 0x3); }
-        uint32_t h_repeat() const { return (entry >> 24) & 0xF; }
+        uint32_t frame_offset_idx() const { return (entry >> 29); }
+        LineMode line_mode() const { return LineMode((entry >> 27) & 0x3); }
+        uint32_t h_repeat() const { return (entry >> 24) & 0x7; }
         uint32_t line_address() const { return entry & 0xFFFFFF; }
     };
 

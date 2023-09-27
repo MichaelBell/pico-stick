@@ -38,8 +38,10 @@ public:
     // Disbale a sprite
     void clear_sprite(int8_t i);
 
-    void set_frame_data_address_offset(int idx, int offset) {
+    void set_frame_data_address_offset(int idx, int offset, uint32_t max_addr, int offset2) {
         next_frame_scroll[idx].start_address_offset = offset;
+        next_frame_scroll[idx].max_start_address = max_addr;
+        next_frame_scroll[idx].start_address_offset2 = offset2;
     }
 
     void set_scroll_wrap(int idx, int16_t position, int16_t offset) {
@@ -122,6 +124,8 @@ private:
     struct ScrollConfig {
         // Everything here is in bytes
         int start_address_offset = 0;
+        uint32_t max_start_address = 0;  // If non-zero, use start_address_offset2 if addr + start_address_offset >= max_start_address_offset
+        int start_address_offset2 = 0;
         int16_t wrap_position = 0;
         int16_t wrap_offset = 0;  // This is the offset from the start of the line.
     };

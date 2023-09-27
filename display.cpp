@@ -496,7 +496,12 @@ void DisplayDriver::read_two_lines(uint idx) {
     for (int i = 0; i < 2; ++i) {
         const FrameTableEntry& entry = frame_table[line_counter + i];
         const ScrollConfig& scroll_config = frame_scroll[entry.frame_offset_idx()];
+        
         uint32_t addr = entry.line_address() + scroll_config.start_address_offset;
+        if (scroll_config.max_start_address > 0 && addr >= scroll_config.max_start_address) {
+            addr = entry.line_address() + scroll_config.start_address_offset2;
+        }
+
         addresses[address_idx] = addr;
         pixel_ptr[idx * 2 + i] = ptr;
 

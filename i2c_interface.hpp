@@ -15,7 +15,7 @@ namespace i2c_slave_if {
     //  - Last register written (same as first if only one byte written)
     //  - Pointer start of high register memory (for all registers, the pointer points at register 0xC0)
     // The init call returns the pointer to high register memory, so that it can be properly initialized.
-    uint8_t* init(void (*sprite_callback)(uint8_t, uint8_t, uint8_t*), void (*reg_callback)(uint8_t, uint8_t, uint8_t*));
+    uint8_t* init(void (*sprite_callback)(uint8_t, uint8_t, uint8_t*), void (*reg_callback)(uint8_t, uint8_t, uint8_t*, uint8_t*));
 
     // Deinitialize before adjusting clocks, then init again.
     void deinit();

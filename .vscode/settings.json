@@ -23,7 +23,9 @@
         "cmath": "cpp",
         "vreg.h": "c",
         "tuple": "cpp",
-        "cstdlib": "c"
+        "cstdlib": "c",
+        "unordered_map": "cpp",
+        "numeric": "cpp"
     },
     "cortex-debug.variableUseNaturalFormat": false
 }

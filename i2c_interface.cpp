@@ -19,6 +19,9 @@ namespace {
     constexpr uint I2C_SPRITE_REG_BASE = 0;
     constexpr uint I2C_SPRITE_DATA_LEN = 7;
 
+    constexpr uint I2C_SCROLL_GROUP_REG_BASE = 0xE0;
+    constexpr uint I2C_SCROLL_GROUP_DATA_LEN = 13;
+
     constexpr uint I2C_HIGH_REG_BASE = 0xC0;
     constexpr uint I2C_NUM_HIGH_REGS = 0x40;
     constexpr uint I2C_GPIO_INPUT_REG = 0xC0;
@@ -26,8 +29,8 @@ namespace {
     constexpr uint I2C_EDID_REGISTER = 0xFB;
 
     // Callback made after an I2C write to high registers is complete.  It gives the first register written,
-    // The last register written, and a pointer to the memory representing all high registers (from 0xC0).
-    void (*i2c_reg_written_callback)(uint8_t, uint8_t, uint8_t*) = nullptr;
+    // The last register written, a pointer to the memory representing all high registers (from 0xC0), and a pointer to the scroll group memory
+    void (*i2c_reg_written_callback)(uint8_t, uint8_t, uint8_t*, uint8_t*) = nullptr;
 
     // Calback made after an I2C write to sprite memory.  It gives the index of the first sprite written,
     // number of bytes written (this may go on to further sprites), and a pointer to the memory
@@ -41,6 +44,7 @@ namespace {
     struct I2CContext
     {
         uint8_t sprite_mem[MAX_SPRITES * I2C_SPRITE_DATA_LEN];
+        uint8_t scroll_group_mem[(NUM_SCROLL_GROUPS - 1) * I2C_SCROLL_GROUP_DATA_LEN];
         alignas(4) uint8_t high_regs[I2C_NUM_HIGH_REGS];
         uint16_t cur_register;
         uint8_t first_register;
@@ -70,6 +74,14 @@ namespace {
                     ++cxt->cur_register;
                 }
                 cxt->data_written = true;
+            } else if (cxt->cur_register >= I2C_SCROLL_GROUP_REG_BASE + 1 && cxt->cur_register < I2C_SCROLL_GROUP_REG_BASE + NUM_SCROLL_GROUPS) {
+                // save into memory
+                cxt->scroll_group_mem[(cxt->cur_register - I2C_SCROLL_GROUP_REG_BASE - 1) * I2C_SCROLL_GROUP_DATA_LEN + cxt->access_idx] = i2c_read_byte(i2c);
+                if (++cxt->access_idx == I2C_SCROLL_GROUP_DATA_LEN) {
+                    cxt->access_idx = 0;
+                    ++cxt->cur_register;
+                }
+                cxt->data_written = true;
             } else if (cxt->cur_register >= I2C_HIGH_REG_BASE && cxt->cur_register < I2C_HIGH_REG_BASE + I2C_NUM_HIGH_REGS) {
                 cxt->high_regs[cxt->cur_register - I2C_HIGH_REG_BASE] = i2c_read_byte(i2c);
                 ++cxt->cur_register;
@@ -83,8 +95,14 @@ namespace {
         case I2C_SLAVE_REQUEST: // master is requesting data
             // load from memory
             if (cxt->cur_register >= I2C_SPRITE_REG_BASE && cxt->cur_register < I2C_SPRITE_REG_BASE + MAX_SPRITES) {
-                i2c_write_byte(i2c, cxt->sprite_mem[cxt->cur_register + cxt->access_idx]);
+                i2c_write_byte(i2c, cxt->sprite_mem[cxt->cur_register * I2C_SPRITE_DATA_LEN + cxt->access_idx]);
                 if (++cxt->access_idx == I2C_SPRITE_DATA_LEN) {
+                    cxt->access_idx = 0;
+                    ++cxt->cur_register;
+                }
+            } else if (cxt->cur_register >= I2C_SCROLL_GROUP_REG_BASE + 1 && cxt->cur_register < I2C_SCROLL_GROUP_REG_BASE + NUM_SCROLL_GROUPS) {
+                i2c_write_byte(i2c, cxt->scroll_group_mem[(cxt->cur_register - I2C_SCROLL_GROUP_REG_BASE - 1) * I2C_SCROLL_GROUP_DATA_LEN + cxt->access_idx]);
+                if (++cxt->access_idx == I2C_SCROLL_GROUP_DATA_LEN) {
                     cxt->access_idx = 0;
                     ++cxt->cur_register;
                 }
@@ -114,7 +132,7 @@ namespace {
                     }
                 } else if (cxt->first_register >= I2C_HIGH_REG_BASE && cxt->first_register < I2C_HIGH_REG_BASE + I2C_NUM_HIGH_REGS) {
                     if (i2c_reg_written_callback) {
-                        i2c_reg_written_callback(cxt->first_register, std::min(cxt->cur_register-1, int(I2C_HIGH_REG_BASE + I2C_NUM_HIGH_REGS - 1)), cxt->high_regs);
+                        i2c_reg_written_callback(cxt->first_register, std::min(cxt->cur_register-1, int(I2C_HIGH_REG_BASE + I2C_NUM_HIGH_REGS - 1)), cxt->high_regs, cxt->scroll_group_mem);
                     }
                 }
             }
@@ -130,7 +148,7 @@ namespace {
 }
 
 namespace i2c_slave_if {
-    uint8_t* init(void (*sprite_callback)(uint8_t, uint8_t, uint8_t*), void (*reg_callback)(uint8_t, uint8_t, uint8_t*)) {
+    uint8_t* init(void (*sprite_callback)(uint8_t, uint8_t, uint8_t*), void (*reg_callback)(uint8_t, uint8_t, uint8_t*, uint8_t*)) {
         i2c_reg_written_callback = reg_callback;
         i2c_sprite_written_callback = sprite_callback;
 

@@ -5,7 +5,7 @@
 #endif
 
 constexpr int PALETTE_SIZE = 32;
-constexpr int NUM_SCROLL_GROUPS = 4;
+constexpr int NUM_SCROLL_GROUPS = 8;
 
 #if !SUPPORT_WIDE_MODES
 // Support for normal modes, require <300MHz overclock, 

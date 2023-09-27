@@ -52,7 +52,7 @@ static uint8_t get_vreg_select_for_voltage(uint8_t voltage_50mv) {
 
 void setup_i2c_reg_data(uint8_t* regs);
 
-void handle_i2c_reg_write(uint8_t reg, uint8_t end_reg, uint8_t* regs) {
+void handle_i2c_reg_write(uint8_t reg, uint8_t end_reg, uint8_t* regs, uint8_t* scroll_group_mem) {
     // Subtract 0xC0 from regs so that register numbers match addresses
     regs -= 0xC0;
 
@@ -128,20 +128,25 @@ void handle_i2c_reg_write(uint8_t reg, uint8_t end_reg, uint8_t* regs) {
         display.clear_late_scanlines();
     }
 
-    for (int i = 0; i < 3; ++i) {
-        if (REG_WRITTEN2(0xE0 + 8*i, 0xE7 + 8*i)) {
-            uint8_t* reg_base = &regs[0xE0 + 8*i];
-            int16_t wrap_position = (reg_base[1] << 8) |
+    for (int i = 1; i < NUM_SCROLL_GROUPS; ++i) {
+        if (REG_WRITTEN(0xE0 + i)) {
+            uint8_t* reg_base = &scroll_group_mem[(i-1) * 13];
+            int offset = (reg_base[2] << 16) |
+                        (reg_base[1] << 8) |
                         (reg_base[0]);
-            int16_t wrap_offset = (reg_base[3] << 8) |
-                        (reg_base[2]);
-            display.set_scroll_wrap(i+1, wrap_position, wrap_offset);
+            uint32_t max_addr = (reg_base[5] << 16) |
+                        (reg_base[4] << 8) |
+                        (reg_base[3]);
+            int offset2 = (reg_base[8] << 16) |
+                        (reg_base[7] << 8) |
+                        (reg_base[6]);
+            int16_t wrap_position = (reg_base[10] << 8) |
+                        (reg_base[9]);
+            int16_t wrap_offset = (reg_base[12] << 8) |
+                        (reg_base[11]);
 
-            int offset = (reg_base[7] << 24) |
-                        (reg_base[6] << 16) |
-                        (reg_base[5] << 8) |
-                        (reg_base[4]);
-            display.set_frame_data_address_offset(i+1, offset);
+            display.set_scroll_wrap(i, wrap_position, wrap_offset);
+            display.set_frame_data_address_offset(i, offset, max_addr, offset2);
         }
     }
 
