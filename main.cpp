@@ -12,6 +12,7 @@
 #include "hardware/watchdog.h"
 #include "pico/bootrom.h"
 #include "hardware/structs/pads_qspi.h"
+#include "hardware/structs/ioqspi.h"
 #include "hardware/adc.h"
 
 #include "i2c_interface.hpp"
@@ -294,7 +295,8 @@ int main() {
     gpio_disable_pulls(PIN_ADC);
     sio_hw->gpio_hi_oe = 0;
     for (uint i = 0; i < NUM_QSPI_GPIOS; ++i) {
-        pads_qspi_hw->io[i] = 0x62;
+        pads_qspi_hw->io[i] = 0x52;
+        ioqspi_hw->io[i].ctrl = 5;
     }
 
     // Setup heartbeat LED
