@@ -358,6 +358,13 @@ void DisplayDriver::run() {
     dvi_stop(&dvi0);
     sleep_ms(1);
 
+    memset(frame_scroll, 0, sizeof(frame_scroll));
+    memset(next_frame_scroll, 0, sizeof(next_frame_scroll));
+
+    for (int i = 0; i < MAX_SPRITES; ++i) {
+        clear_sprite(i);
+    }
+
     multicore_reset_core1();
 
     if (heartbet_led) {
