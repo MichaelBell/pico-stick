@@ -51,6 +51,63 @@ static uint8_t get_vreg_select_for_voltage(uint8_t voltage_50mv) {
     return voltage_50mv - (1000 / 50) + VREG_VOLTAGE_1_00;
 }
 
+static int adc_dma_chan = -1;
+
+static void restart_adc(uint8_t* regs) {
+    // Set up ADC
+    adc_run(false);
+
+    adc_fifo_setup(
+        true,    // Write each completed conversion to the sample FIFO
+        true,    // Enable DMA data request (DREQ)
+        1,       // DREQ (and IRQ) asserted when at least 1 sample present
+        false,   // Disable error bit
+        false    // Full 12-bit readings
+    );
+
+    // Go as slow as possible
+    adc_set_clkdiv(65535);
+
+    if (adc_dma_chan == -1) adc_dma_chan = dma_claim_unused_channel(true);
+    else {
+        dma_channel_abort(adc_dma_chan);
+        adc_fifo_drain();
+    }
+    dma_channel_config cfg = dma_channel_get_default_config(adc_dma_chan);
+
+    // Reading from constant address, writing to I2C register address
+    channel_config_set_transfer_data_size(&cfg, DMA_SIZE_16);
+    channel_config_set_read_increment(&cfg, false);
+
+    void *dst;
+    if (regs[0xC2] == 6) {
+        // Read from inputs 3 and 4.
+        adc_select_input(3);
+        adc_set_round_robin(0b11000);
+        channel_config_set_write_increment(&cfg, true);
+        channel_config_set_ring(&cfg, true, 2);
+        dst = &regs[0xC4];
+    }
+    else {
+        adc_select_input(4);
+        channel_config_set_write_increment(&cfg, false);
+        dst = &regs[0xC6];
+    }
+
+    // Pace transfers based on availability of ADC samples
+    channel_config_set_dreq(&cfg, DREQ_ADC);
+
+    // Transfer "forever" - should work for 2^32 / (48MHz / 65535) = 67.8 days
+    dma_channel_configure(adc_dma_chan, &cfg,
+        dst,            // dst
+        &adc_hw->fifo,  // src
+        0xFFFFFFFF,     // transfer count
+        true            // start immediately
+    );
+
+    adc_run(true);
+}
+
 void setup_i2c_reg_data(uint8_t* regs);
 
 void handle_i2c_reg_write(uint8_t reg, uint8_t end_reg, uint8_t* regs, uint8_t* scroll_group_mem) {
@@ -72,6 +129,11 @@ void handle_i2c_reg_write(uint8_t reg, uint8_t end_reg, uint8_t* regs, uint8_t* 
     }
 
     if (REG_WRITTEN(0xC2)) {
+        if (dma_hw->ch[adc_dma_chan].write_addr == (uintptr_t)&regs[0xC4] && regs[0xC2] != 6) {
+            // Stop reading ADC from pin 29
+            restart_adc(regs);
+        }
+
         if (regs[0xC2] < 4) {
             gpio_set_dir(PIN_ADC, GPIO_IN);
             gpio_set_pulls(PIN_ADC, regs[0xC2] & 0x1, regs[0xC2] & 0x2);
@@ -92,6 +154,7 @@ void handle_i2c_reg_write(uint8_t reg, uint8_t end_reg, uint8_t* regs, uint8_t* 
             gpio_set_function(PIN_ADC, GPIO_FUNC_PWM);
         } else if (regs[0xC2] == 6) {
             adc_gpio_init(PIN_ADC);
+            restart_adc(regs);
         }
     }
     if (REG_WRITTEN(0xC3)) {
@@ -230,45 +293,6 @@ void setup_i2c_reg_data(uint8_t* regs) {
     regs[0xFC] = display.get_res();
 }
 
-void start_temp_sense(uint8_t* regs) {
-    // Set up ADC
-    adc_init();
-    adc_set_temp_sensor_enabled(true);
-    adc_select_input(4);
-
-    adc_fifo_setup(
-        true,    // Write each completed conversion to the sample FIFO
-        true,    // Enable DMA data request (DREQ)
-        1,       // DREQ (and IRQ) asserted when at least 1 sample present
-        false,   // Disable error bit
-        false    // Full 12-bit readings
-    );
-
-    // Go as slow as possible
-    adc_set_clkdiv(65535);
-
-    uint dma_chan = dma_claim_unused_channel(true);
-    dma_channel_config cfg = dma_channel_get_default_config(dma_chan);
-
-    // Reading from constant address, writing to I2C register address
-    channel_config_set_transfer_data_size(&cfg, DMA_SIZE_16);
-    channel_config_set_read_increment(&cfg, false);
-    channel_config_set_write_increment(&cfg, false);
-
-    // Pace transfers based on availability of ADC samples
-    channel_config_set_dreq(&cfg, DREQ_ADC);
-
-    // Transfer "forever" - should work for 2^32 / (48MHz / 65535) = 67.8 days
-    dma_channel_configure(dma_chan, &cfg,
-        &regs[0xC6],    // dst
-        &adc_hw->fifo,  // src
-        0xFFFFFFFF,     // transfer count
-        true            // start immediately
-    );
-
-    adc_run(true);
-}
-
 void configure_usb_gpio() {
     usb_hw->phy_direct_override = 0x11FC;
 }
@@ -299,6 +323,10 @@ int main() {
         ioqspi_hw->io[i].ctrl = 5;
     }
 
+    // Setup ADC
+    adc_init();
+    adc_set_temp_sensor_enabled(true);
+
     // Setup heartbeat LED
     gpio_set_function(PIN_LED, GPIO_FUNC_PWM);
     {
@@ -313,7 +341,7 @@ int main() {
     uint8_t* regs = i2c_slave_if::init(handle_i2c_sprite_write, handle_i2c_reg_write);
     setup_i2c_reg_data(regs);
     regs -= 0xC0;
-    start_temp_sense(regs);
+    restart_adc(regs);
     printf("DV Display Driver I2C Initialised\n");
 
     read_edid();
