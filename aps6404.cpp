@@ -74,7 +74,7 @@ namespace pimoroni {
         pio_sm_set_enabled(pio, pio_sm, false);
         pio_remove_program(pio, pio_prog, pio_offset);
 
-        if (clock_get_hz(clk_sys) > 296000000) {
+        if (clock_get_hz(clk_sys) > 285000000) {
             pio_prog = &sram_fast_program;
             pio_offset = pio_add_program(pio, &sram_fast_program);
             aps6404_program_init(pio, pio_sm, pio_offset, pin_csn, pin_d0, false, true, false);
