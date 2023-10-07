@@ -517,7 +517,7 @@ void DisplayDriver::read_two_lines(uint idx) {
         if (double_pixels) line_length >>= 1;
         ptr += line_length >> 2;
 
-        if (scroll_config.wrap_position > 0) {
+        if (scroll_config.wrap_position > 0 && (uint32_t)scroll_config.wrap_position < line_length) {
             read_lengths[address_idx++] = scroll_config.wrap_position;
             addresses[address_idx] = addr + scroll_config.wrap_offset;
             read_lengths[address_idx++] = line_length - scroll_config.wrap_position;
