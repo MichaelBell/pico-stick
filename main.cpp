@@ -14,6 +14,7 @@
 #include "hardware/structs/pads_qspi.h"
 #include "hardware/structs/ioqspi.h"
 #include "hardware/adc.h"
+#include "pico/multicore.h"
 
 #include "i2c_interface.hpp"
 #include "display.hpp"
@@ -372,6 +373,21 @@ int main() {
         printf("DV Driver: Clock configured\n");
 
         display.run();
+
+        // Set the clock rate back down to 125MHz.
+        // It appears that weird stuff happens if we try to reset core 1
+        // while running at 400MHz!!
+        
+        // Deinit I2C before adjusting clock
+        i2c_slave_if::deinit();
+
+        set_sys_clock_khz(125000, true);
+
+        stdio_init_all();
+        multicore_reset_core1();
+
+        // Reinit I2C now clock is set.
+        i2c_slave_if::init(handle_i2c_sprite_write, handle_i2c_reg_write);
 
         printf("DV Driver: Display stopped\n");
         regs[0xFD] = 0;

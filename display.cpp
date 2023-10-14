@@ -241,6 +241,8 @@ void DisplayDriver::run() {
             }
         }
 
+        //pwm_set_gpio_level(PIN_LED, frame_data.frame_table_header.bank_number ? 255*255 : 0);
+
         frame_data.get_frame_table(frame_counter, frame_table);
 
         if (frame_data.config.v_repeat != dvi0.vertical_repeat) {
@@ -364,8 +366,6 @@ void DisplayDriver::run() {
     for (int i = 0; i < MAX_SPRITES; ++i) {
         clear_sprite(i);
     }
-
-    multicore_reset_core1();
 
     if (heartbet_led) {
         pwm_set_gpio_level(PIN_LED, 0);
