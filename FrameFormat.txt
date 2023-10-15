@@ -19,7 +19,7 @@ Frame table header:
   2 bytes: Frame table length                      - Length of each frame table.  Normally same as vertical length.
   1 byte:  Frame rate divider                      - The frame counter is updated at the DVI frame rate divided by this divider. (If 0 the frame number is not advanced but can be updated over I2C)
   1 byte:  Bank number                             - Indication of which RAM bank this is.  When driver sees this value is changed it resets the output frame to the configured first frame number.
-  1 byte:  Number of palettes                      - 
+  1 byte:  Number of palettes                      - For 256 colour palette mode, use a multiple of 8 palettes
   1 byte:  Palette advance                         - 0 or 1 to indicate whether the palette tables should be indexed by the frame counter.
   2 bytes: Number of sprites in sprite table
 
@@ -27,7 +27,7 @@ Frame tables:
   Number of frames times:
     Frame table length times:
       3 bits: Scroll offset index                  - Which scroll offset from the I2C register to apply to the line address, or 0 for none.
-      2 bits: Line mode (ARGB1555, RGB888, 8-bit palette)
+      2 bits: Line mode (ARGB1555, RGB888, 32 colour palette 0CCCCC0A, 256 colour palette)
       3 bits: Horizontal repeat, must be 1 or 2 (currently assumed to be 1)
       3 bytes: Line address
 
@@ -40,7 +40,7 @@ Palette tables:
 
 Sprite table:
   Number of sprites times:
-    4 bits: Sprite mode (ARGB1555, RGB888, 8-bit palette, ...)
+    4 bits: Sprite mode (ARGB1555, RGB888, 32 colour palette, 256 colour palette)
     4 bits: Sprite submode (Unused, was originally thinking palette index)
     3 bytes: Sprite entry address (must be a multiple of 4)
 

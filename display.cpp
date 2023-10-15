@@ -453,7 +453,8 @@ void DisplayDriver::prepare_scanline_core0(int line_number, uint32_t* pixel_data
         }
     }
     if (scanline_mode & DOUBLE_PIXELS) {
-        if (scanline_mode & RGB888) tmds_encode_24bpp(pixel_data, tmds_buf, frame_data.config.h_length >> 1);
+        if ((scanline_mode & (PALETTE | RGB888)) == (PALETTE | RGB888)) tmds_encode_palette_data(pixel_data, tmds_doubled_palette256_lut, tmds_buf, frame_data.config.h_length >> 1, 0, 8);
+        else if (scanline_mode & RGB888) tmds_encode_24bpp(pixel_data, tmds_buf, frame_data.config.h_length >> 1);
         else if (scanline_mode & PALETTE) tmds_encode_palette_data(pixel_data, tmds_doubled_palette_lut, tmds_buf, frame_data.config.h_length >> 1, 2, 5);
         else tmds_encode_15bpp(pixel_data, tmds_buf, frame_data.config.h_length >> 1);
     }
@@ -481,7 +482,8 @@ void DisplayDriver::prepare_scanline_core1(int line_number, uint32_t* pixel_data
         }
     }
     if (scanline_mode & DOUBLE_PIXELS) {
-        if (scanline_mode & RGB888) tmds_encode_24bpp(pixel_data, tmds_buf, frame_data.config.h_length >> 1);
+        if ((scanline_mode & (PALETTE | RGB888)) == (PALETTE | RGB888)) tmds_encode_palette_data(pixel_data, tmds_doubled_palette256_lut, tmds_buf, frame_data.config.h_length >> 1, 0, 8);
+        else if (scanline_mode & RGB888) tmds_encode_24bpp(pixel_data, tmds_buf, frame_data.config.h_length >> 1);
         else if (scanline_mode & PALETTE) tmds_encode_palette_data(pixel_data, tmds_doubled_palette_lut, tmds_buf, frame_data.config.h_length >> 1, 2, 5);
         else tmds_encode_15bpp(pixel_data, tmds_buf, frame_data.config.h_length >> 1);
     }
@@ -528,7 +530,8 @@ void DisplayDriver::read_two_lines(uint idx) {
         
         int8_t lmode = 0;
         if (double_pixels) lmode |= DOUBLE_PIXELS;
-        if (entry.line_mode() == MODE_PALETTE) lmode |= PALETTE;
+        if (entry.line_mode() == MODE_PALETTE256) lmode |= PALETTE | RGB888;
+        else if (entry.line_mode() == MODE_PALETTE) lmode |= PALETTE;
         else if (entry.line_mode() == MODE_RGB888) lmode |= RGB888;
         line_mode[idx * 2 + i] = lmode;
     }
@@ -546,7 +549,17 @@ void DisplayDriver::setup_palette() {
     tmds_double_encode_setup_lut(palette, tmds_palette_luts, 3);
     tmds_double_encode_setup_lut(palette + 1, tmds_palette_luts + (PALETTE_SIZE * PALETTE_SIZE * 4), 3);
     tmds_double_encode_setup_lut(palette + 2, tmds_palette_luts + (PALETTE_SIZE * PALETTE_SIZE * 8), 3);
-    tmds_setup_palette_symbols(palette, tmds_doubled_palette_lut, PALETTE_SIZE);
+    tmds_setup_palette_symbols(palette, tmds_doubled_palette_lut, PALETTE_SIZE, 32);
+
+    if (frame_data.frame_table_header.num_palettes >= palette_idx + 8) {
+        // 256 colour palette (pixel doubled only)
+        tmds_setup_palette_symbols(palette, tmds_doubled_palette256_lut, 32, 256);
+        for (int i = 1; i < 8; ++i) {
+            frame_data.get_palette(palette_idx + i, frame_counter, palette);
+            ram.wait_for_finish_blocking();
+            tmds_setup_palette_symbols(palette, tmds_doubled_palette256_lut + 32 * i, 32, 256);
+        }
+    }
 }
 
 void DisplayDriver::update_sprites() {

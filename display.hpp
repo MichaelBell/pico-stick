@@ -150,8 +150,9 @@ private:
     uint32_t tmds_palette_luts[PALETTE_SIZE * PALETTE_SIZE * 12];
     uint32_t* tmds_15bpp_lut = &tmds_palette_luts[PALETTE_SIZE * PALETTE_SIZE * 2];
 
-    // Pixel doubling TMDS LUT
+    // Pixel doubling TMDS LUTs
     uint32_t tmds_doubled_palette_lut[PALETTE_SIZE * 3];
+    uint32_t tmds_doubled_palette256_lut[256 * 3];
 
     // TMDS buffers.  Better to have them here than rely on dynamic allocation
     uint32_t tmds_buffers[NUM_TMDS_BUFFERS * 3 * MAX_FRAME_WIDTH / DVI_SYMBOLS_PER_WORD];

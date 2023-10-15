@@ -19,9 +19,10 @@ namespace pico_stick {
     };
 
     enum LineMode : uint8_t {
-        MODE_ARGB1555 = 1,  // 2 bytes per pixel: Alpha 15, Red 14-10, Green 9-5, Blue 4-0
-        MODE_PALETTE = 2,   // 1 byte per pixel: Colour 6-2, Alpha 0 (unused bits must be zero), maps to RGB888 palette entry, 32 colour palette (no pixel doubling yet)
-        MODE_RGB888 = 3,    // 3 bytes per pixel R, G, B (pixel doubling mode only)
+        MODE_ARGB1555 = 1,   // 2 bytes per pixel: Alpha 15, Red 14-10, Green 9-5, Blue 4-0
+        MODE_PALETTE = 2,    // 1 byte per pixel: Colour 6-2, Alpha 0 (unused bits must be zero), maps to RGB888 palette entry, 32 colour palette (no pixel doubling yet)
+        MODE_RGB888 = 3,     // 3 bytes per pixel R, G, B (pixel doubling mode only)
+        MODE_PALETTE256 = 0, // 1 bytes per pixel, 256 colours (pixel doubling mode only), if used for sprites low bit of the palette entry is used as alpha
         MODE_INVALID = 0xFF
     };
 
