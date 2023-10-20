@@ -62,7 +62,11 @@ void Sprite::setup_patches(DisplayDriver& disp) {
             start = 0;
         }
 
-        const int len = end - start;
+        int len = end - start;
+        if (len > 128) { 
+            len = 128;
+        }
+
         uint8_t* const sprite_data_ptr = data + line.data_start + start_offset;
 
         for (uint8_t i = 0; i < v_scale && line_idx < disp.frame_data.config.v_length; ++i) {
