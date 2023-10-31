@@ -14,7 +14,7 @@ The driver RP2040 has no flash and is designed to be programmed over SWD either 
 
 ## Loading from the CPU
 
-The build produces a `pico-stick.h` in the `build/` directory that should be copied to `drivers/dv_display` in the [dv_stick branch](https://github.com/MichaelBell/pimoroni-pico/tree/dv_stick) of the pimoroni-pico repo.  This is also saved in the github action artifact.
+The build produces a `pico-stick.h` in the `build/` directory that should be copied to `drivers/dv_display` in the [picovision repo](https://github.com/pimoroni/picovision).  This is also saved in the github action artifact.
 
 When the DVDisplay driver is initialized it will upload the image from `pico-stick.h` to the driver RP2040.
 
