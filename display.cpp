@@ -127,7 +127,7 @@ void DisplayDriver::init() {
             queue_add_blocking_u32(&dvi0.q_tmds_free, &bufptr);
         }
         sem_init(&dvi_start_sem, 0, 1);
-        hw_set_bits(&bus_ctrl_hw->priority, BUSCTRL_BUS_PRIORITY_PROC1_BITS);
+        hw_set_bits(&bus_ctrl_hw->priority, (BUSCTRL_BUS_PRIORITY_PROC1_BITS | BUSCTRL_BUS_PRIORITY_DMA_R_BITS | BUSCTRL_BUS_PRIORITY_DMA_W_BITS));
 
         Sprite::init();
 
