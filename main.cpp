@@ -225,7 +225,8 @@ void handle_i2c_reg_write(uint8_t reg, uint8_t end_reg, uint8_t* regs, uint8_t* 
 
     if (REG_WRITTEN(0xFC)) {
         if (regs[0xFD] == 0) { // If not started, can change mode
-            display.set_res((pico_stick::Resolution)regs[0xFC]);
+            display.set_res((pico_stick::Resolution)(regs[0xFC] & 0x1F));
+            display.enable_balanced_luts((regs[0xFC] & 0x80) != 0);
             setup_i2c_reg_data(regs + 0xC0);
         }
         regs[0xFC] = display.get_res();

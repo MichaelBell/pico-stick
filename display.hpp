@@ -89,6 +89,11 @@ public:
 
     void enable_heartbeat(bool enable) { heartbet_led = enable; }
 
+    void enable_balanced_luts(bool enable) {
+        balanced_symbol_luts = enable;
+        luts_inited = false;
+    }
+
     void stop() { stop_display = true; }
 
 private:
@@ -170,4 +175,8 @@ private:
 
     // Whether we have been initialized
     bool ever_inited = false;
+    bool luts_inited = false;
+
+    // Whether to use balanced symbols for extra device compatability
+    bool balanced_symbol_luts = false;
 };

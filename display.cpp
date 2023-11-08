@@ -116,11 +116,6 @@ void DisplayDriver::init() {
         gpio_put(PIN_VSYNC, 0);
         gpio_set_dir(PIN_VSYNC, GPIO_OUT);
 
-        // Setup TMDS symbol LUTs
-        tmds_double_encode_setup_default_lut(tmds_15bpp_lut);
-        memcpy(tmds_palette_luts + (PALETTE_SIZE * PALETTE_SIZE * 6), tmds_15bpp_lut, PALETTE_SIZE * PALETTE_SIZE * 2);
-        memcpy(tmds_palette_luts + (PALETTE_SIZE * PALETTE_SIZE * 10), tmds_15bpp_lut, PALETTE_SIZE * PALETTE_SIZE * 2);
-
         dvi_init(&dvi0, next_striped_spin_lock_num(), next_striped_spin_lock_num());
         for (int i = 0; i < NUM_TMDS_BUFFERS; ++i) {
             void* bufptr = (void*)&tmds_buffers[i * 3 * MAX_FRAME_WIDTH / DVI_SYMBOLS_PER_WORD];
@@ -141,6 +136,16 @@ void DisplayDriver::init() {
     }
     else {
         dvi_setup(&dvi0);
+    }
+
+    if (!luts_inited) {
+        // Setup TMDS symbol LUTs
+        tmds_double_encode_setup_default_lut(tmds_15bpp_lut, balanced_symbol_luts);
+        
+        memcpy(tmds_palette_luts + (PALETTE_SIZE * PALETTE_SIZE * 6), tmds_15bpp_lut, PALETTE_SIZE * PALETTE_SIZE * 2);
+        memcpy(tmds_palette_luts + (PALETTE_SIZE * PALETTE_SIZE * 10), tmds_15bpp_lut, PALETTE_SIZE * PALETTE_SIZE * 2);
+
+        luts_inited = true;
     }
 
     // This calculation shouldn't overflow for any resolution we could plausibly support.
@@ -546,9 +551,16 @@ void DisplayDriver::setup_palette() {
     frame_data.get_palette(palette_idx, frame_counter, palette);
     ram.wait_for_finish_blocking();
 
-    tmds_double_encode_setup_lut(palette, tmds_palette_luts, 3);
-    tmds_double_encode_setup_lut(palette + 1, tmds_palette_luts + (PALETTE_SIZE * PALETTE_SIZE * 4), 3);
-    tmds_double_encode_setup_lut(palette + 2, tmds_palette_luts + (PALETTE_SIZE * PALETTE_SIZE * 8), 3);
+    if (balanced_symbol_luts) {
+        tmds_double_encode_setup_balanced_lut(palette, tmds_palette_luts, 3);
+        tmds_double_encode_setup_balanced_lut(palette + 1, tmds_palette_luts + (PALETTE_SIZE * PALETTE_SIZE * 4), 3);
+        tmds_double_encode_setup_balanced_lut(palette + 2, tmds_palette_luts + (PALETTE_SIZE * PALETTE_SIZE * 8), 3);
+    }
+    else {
+        tmds_double_encode_setup_lut(palette, tmds_palette_luts, 3);
+        tmds_double_encode_setup_lut(palette + 1, tmds_palette_luts + (PALETTE_SIZE * PALETTE_SIZE * 4), 3);
+        tmds_double_encode_setup_lut(palette + 2, tmds_palette_luts + (PALETTE_SIZE * PALETTE_SIZE * 8), 3);
+    }
     tmds_setup_palette_symbols(palette, tmds_doubled_palette_lut, PALETTE_SIZE, 32);
 
     if (frame_data.frame_table_header.num_palettes >= palette_idx + 8) {
